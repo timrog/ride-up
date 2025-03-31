@@ -1,5 +1,5 @@
-const functions = require('@google-cloud/functions-framework');
-const { Firestore } = require('@google-cloud/firestore');
+import functions from '@google-cloud/functions-framework'
+import { Firestore } from '@google-cloud/firestore'
 const firestore = new Firestore()
 
 functions.http('getUsers', async (req, res) => {
