@@ -1,48 +1,39 @@
-// Copyright 2021 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+const functions = require('@google-cloud/functions-framework');
+const { Firestore } = require('@google-cloud/firestore');
+const firestore = new Firestore()
 
-import app from './app.js';
-import {logger, initLogCorrelation} from './utils/logging.js';
-import {fetchProjectId} from './utils/metadata.js';
+functions.http('getUsers', async (req, res) => {
 
-/**
- * Initialize app and start Express server
- */
-const main = async () => {
-  let project = process.env.GOOGLE_CLOUD_PROJECT;
-  if (!project) {
-    try {
-      project = await fetchProjectId();
-    } catch {
-      logger.warn('Could not fetch Project Id for tracing.');
-    }
-  }
-  // Initialize request-based logger with project Id
-  initLogCorrelation(project);
+  const cookies = firestore.doc('mm_cookies/1')
+  const cookie = await cookies.get()
+  var cookieValue = cookies.exists ? cookie.data().value : null
 
-  // Start server listening on PORT env var
-  const PORT = process.env.PORT || 8080;
-  app.listen(PORT, () => logger.info(`Listening on port ${PORT}`));
-};
+  if (cookieValue) console.log("Found cookie value", cookieValue)
 
-/**
- * Listen for termination signal
- */
-process.on('SIGTERM', () => {
-  // Clean up resources on shutdown
-  logger.info('Caught SIGTERM.');
-  logger.flush();
-});
+  const loginResponse = await fetch("https://membermojo.co.uk/vcgh/signin_password", {
+    "body": `email=${encodeURI('timrog@googlemail.com')}&password=${encodeURI('@c7g.A<y.$adDc)p[DZg')}`,
+    "method": "POST"
+  })
 
-main();
+  const newCookie = loginResponse.headers.entries
+    .filter(([k]) => k.toLowerCase == 'set-cookie')
+    .map(([k, v]) => v)
+    .join('; ')
+
+  console.log("new cookie", newCookie)
+
+  const loginText = await loginResponse.text()
+  const csrf_token = loginText.match(/"csrf_token":"([^"]+)/)[1]
+
+  console.log("csrf token", csrf_token)
+
+  var upstream = await fetch("https://membermojo.co.uk/vcgh/membership/download_members?", {
+    "headers": {
+      "cookie": newCookie
+    },
+    "body": null,
+    "method": "GET"
+  });
+
+  res.send(await upstream.text())
+})
