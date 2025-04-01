@@ -22,10 +22,12 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Install dependencies.
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy local code to the container image.
 COPY . ./
+
+RUN npm run compile
 
 # Run the web service on container startup.
 ENTRYPOINT [ "npm", "start" ]
