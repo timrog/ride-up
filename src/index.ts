@@ -6,9 +6,14 @@ const firestore = new Firestore()
 const fetchCookie = makeFetchCookie(fetch)
 
 const mm_email = process.env.SECRET_MM_USERNAME
+if (!mm_email) throw new Error("SECRET_MM_USERNAME not set")
+
 const mm_password = process.env.SECRET_MM_PASSWORD
+if (!mm_password) throw new Error("SECRET_MM_PASSWORD not set")
 
 export const getUsers: HttpFunction = async (req, res) => {
+
+  console.log("Request received", req.path, req.body)
 
   const cookies = firestore.doc('mm_cookies/1')
   const cookieDoc = await cookies.get()
