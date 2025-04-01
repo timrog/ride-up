@@ -6,7 +6,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "functions-framework --source=build --target=getUsers",
+    "start": "functions-framework --source=build/src/index.js --target=getUsers",
     "compile": "tsc",
     "predeploy": "npm i && npm run compile",
     "deploy": "gcloud functions deploy $FUNCTION_NAME --region=$REGION --runtime nodejs16 --entry-point=index --gen2 --source ./build --trigger-event=google.storage.object.finalize --trigger-resource=$BUCKET --trigger-service-account=$TRIGGER_SERVICE_ACCOUNT_ADRESS --set-secrets=\"SECRET_API_KEY=$SECRET_ID:latest\" --service-account=$SERVICE_ACCOUNT_ADRESS",
