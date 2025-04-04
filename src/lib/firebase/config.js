@@ -7,6 +7,8 @@ const config = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+console.log(config)
+
 // When deployed, there are quotes that need to be stripped
 Object.keys(config).forEach((key) => {
   const configValue = config[key] + "";

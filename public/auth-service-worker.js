@@ -291,9 +291,52 @@
       return;
     }
   };
+  var getDefaultEmulatorHost = (productName) => {
+    var _a, _b;
+    return (_b = (_a = getDefaults()) === null || _a === void 0 ? void 0 : _a.emulatorHosts) === null || _b === void 0 ? void 0 : _b[productName];
+  };
+  var getDefaultAppConfig = () => {
+    var _a;
+    return (_a = getDefaults()) === null || _a === void 0 ? void 0 : _a.config;
+  };
   var getExperimentalSetting = (name5) => {
     var _a;
     return (_a = getDefaults()) === null || _a === void 0 ? void 0 : _a[`_${name5}`];
+  };
+  var Deferred = class {
+    constructor() {
+      this.reject = () => {
+      };
+      this.resolve = () => {
+      };
+      this.promise = new Promise((resolve, reject) => {
+        this.resolve = resolve;
+        this.reject = reject;
+      });
+    }
+    /**
+     * Our API internals are not promisified and cannot because our callback APIs have subtle expectations around
+     * invoking promises inline, which Promises are forbidden to do. This method accepts an optional node-style callback
+     * and returns a node-style callback which will resolve or reject the Deferred's promise.
+     */
+    wrapCallback(callback) {
+      return (error, value) => {
+        if (error) {
+          this.reject(error);
+        } else {
+          this.resolve(value);
+        }
+        if (typeof callback === "function") {
+          this.promise.catch(() => {
+          });
+          if (callback.length === 1) {
+            callback(error);
+          } else {
+            callback(error, value);
+          }
+        }
+      };
+    }
   };
   function getUA() {
     if (typeof navigator !== "undefined" && typeof navigator["userAgent"] === "string") {
@@ -389,6 +432,44 @@
     });
   }
   var PATTERN = /\{\$([^}]+)}/g;
+  function isEmpty(obj) {
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  function deepEqual(a, b) {
+    if (a === b) {
+      return true;
+    }
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    for (const k of aKeys) {
+      if (!bKeys.includes(k)) {
+        return false;
+      }
+      const aProp = a[k];
+      const bProp = b[k];
+      if (isObject(aProp) && isObject(bProp)) {
+        if (!deepEqual(aProp, bProp)) {
+          return false;
+        }
+      } else if (aProp !== bProp) {
+        return false;
+      }
+    }
+    for (const k of bKeys) {
+      if (!aKeys.includes(k)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  function isObject(thing) {
+    return thing !== null && typeof thing === "object";
+  }
   function querystring(querystringParams) {
     const params = [];
     for (const [key, value] of Object.entries(querystringParams)) {
@@ -615,6 +696,260 @@
     setInstanceCreatedCallback(callback) {
       this.onInstanceCreated = callback;
       return this;
+    }
+  };
+  var DEFAULT_ENTRY_NAME = "[DEFAULT]";
+  var Provider = class {
+    constructor(name5, container) {
+      this.name = name5;
+      this.container = container;
+      this.component = null;
+      this.instances = /* @__PURE__ */ new Map();
+      this.instancesDeferred = /* @__PURE__ */ new Map();
+      this.instancesOptions = /* @__PURE__ */ new Map();
+      this.onInitCallbacks = /* @__PURE__ */ new Map();
+    }
+    /**
+     * @param identifier A provider can provide multiple instances of a service
+     * if this.component.multipleInstances is true.
+     */
+    get(identifier) {
+      const normalizedIdentifier = this.normalizeInstanceIdentifier(identifier);
+      if (!this.instancesDeferred.has(normalizedIdentifier)) {
+        const deferred = new Deferred();
+        this.instancesDeferred.set(normalizedIdentifier, deferred);
+        if (this.isInitialized(normalizedIdentifier) || this.shouldAutoInitialize()) {
+          try {
+            const instance = this.getOrInitializeService({
+              instanceIdentifier: normalizedIdentifier
+            });
+            if (instance) {
+              deferred.resolve(instance);
+            }
+          } catch (e) {
+          }
+        }
+      }
+      return this.instancesDeferred.get(normalizedIdentifier).promise;
+    }
+    getImmediate(options) {
+      var _a;
+      const normalizedIdentifier = this.normalizeInstanceIdentifier(options === null || options === void 0 ? void 0 : options.identifier);
+      const optional = (_a = options === null || options === void 0 ? void 0 : options.optional) !== null && _a !== void 0 ? _a : false;
+      if (this.isInitialized(normalizedIdentifier) || this.shouldAutoInitialize()) {
+        try {
+          return this.getOrInitializeService({
+            instanceIdentifier: normalizedIdentifier
+          });
+        } catch (e) {
+          if (optional) {
+            return null;
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        if (optional) {
+          return null;
+        } else {
+          throw Error(`Service ${this.name} is not available`);
+        }
+      }
+    }
+    getComponent() {
+      return this.component;
+    }
+    setComponent(component) {
+      if (component.name !== this.name) {
+        throw Error(`Mismatching Component ${component.name} for Provider ${this.name}.`);
+      }
+      if (this.component) {
+        throw Error(`Component for ${this.name} has already been provided`);
+      }
+      this.component = component;
+      if (!this.shouldAutoInitialize()) {
+        return;
+      }
+      if (isComponentEager(component)) {
+        try {
+          this.getOrInitializeService({ instanceIdentifier: DEFAULT_ENTRY_NAME });
+        } catch (e) {
+        }
+      }
+      for (const [instanceIdentifier, instanceDeferred] of this.instancesDeferred.entries()) {
+        const normalizedIdentifier = this.normalizeInstanceIdentifier(instanceIdentifier);
+        try {
+          const instance = this.getOrInitializeService({
+            instanceIdentifier: normalizedIdentifier
+          });
+          instanceDeferred.resolve(instance);
+        } catch (e) {
+        }
+      }
+    }
+    clearInstance(identifier = DEFAULT_ENTRY_NAME) {
+      this.instancesDeferred.delete(identifier);
+      this.instancesOptions.delete(identifier);
+      this.instances.delete(identifier);
+    }
+    // app.delete() will call this method on every provider to delete the services
+    // TODO: should we mark the provider as deleted?
+    async delete() {
+      const services = Array.from(this.instances.values());
+      await Promise.all([
+        ...services.filter((service) => "INTERNAL" in service).map((service) => service.INTERNAL.delete()),
+        ...services.filter((service) => "_delete" in service).map((service) => service._delete())
+      ]);
+    }
+    isComponentSet() {
+      return this.component != null;
+    }
+    isInitialized(identifier = DEFAULT_ENTRY_NAME) {
+      return this.instances.has(identifier);
+    }
+    getOptions(identifier = DEFAULT_ENTRY_NAME) {
+      return this.instancesOptions.get(identifier) || {};
+    }
+    initialize(opts = {}) {
+      const { options = {} } = opts;
+      const normalizedIdentifier = this.normalizeInstanceIdentifier(opts.instanceIdentifier);
+      if (this.isInitialized(normalizedIdentifier)) {
+        throw Error(`${this.name}(${normalizedIdentifier}) has already been initialized`);
+      }
+      if (!this.isComponentSet()) {
+        throw Error(`Component ${this.name} has not been registered yet`);
+      }
+      const instance = this.getOrInitializeService({
+        instanceIdentifier: normalizedIdentifier,
+        options
+      });
+      for (const [instanceIdentifier, instanceDeferred] of this.instancesDeferred.entries()) {
+        const normalizedDeferredIdentifier = this.normalizeInstanceIdentifier(instanceIdentifier);
+        if (normalizedIdentifier === normalizedDeferredIdentifier) {
+          instanceDeferred.resolve(instance);
+        }
+      }
+      return instance;
+    }
+    /**
+     *
+     * @param callback - a function that will be invoked  after the provider has been initialized by calling provider.initialize().
+     * The function is invoked SYNCHRONOUSLY, so it should not execute any longrunning tasks in order to not block the program.
+     *
+     * @param identifier An optional instance identifier
+     * @returns a function to unregister the callback
+     */
+    onInit(callback, identifier) {
+      var _a;
+      const normalizedIdentifier = this.normalizeInstanceIdentifier(identifier);
+      const existingCallbacks = (_a = this.onInitCallbacks.get(normalizedIdentifier)) !== null && _a !== void 0 ? _a : /* @__PURE__ */ new Set();
+      existingCallbacks.add(callback);
+      this.onInitCallbacks.set(normalizedIdentifier, existingCallbacks);
+      const existingInstance = this.instances.get(normalizedIdentifier);
+      if (existingInstance) {
+        callback(existingInstance, normalizedIdentifier);
+      }
+      return () => {
+        existingCallbacks.delete(callback);
+      };
+    }
+    /**
+     * Invoke onInit callbacks synchronously
+     * @param instance the service instance`
+     */
+    invokeOnInitCallbacks(instance, identifier) {
+      const callbacks = this.onInitCallbacks.get(identifier);
+      if (!callbacks) {
+        return;
+      }
+      for (const callback of callbacks) {
+        try {
+          callback(instance, identifier);
+        } catch (_a) {
+        }
+      }
+    }
+    getOrInitializeService({ instanceIdentifier, options = {} }) {
+      let instance = this.instances.get(instanceIdentifier);
+      if (!instance && this.component) {
+        instance = this.component.instanceFactory(this.container, {
+          instanceIdentifier: normalizeIdentifierForFactory(instanceIdentifier),
+          options
+        });
+        this.instances.set(instanceIdentifier, instance);
+        this.instancesOptions.set(instanceIdentifier, options);
+        this.invokeOnInitCallbacks(instance, instanceIdentifier);
+        if (this.component.onInstanceCreated) {
+          try {
+            this.component.onInstanceCreated(this.container, instanceIdentifier, instance);
+          } catch (_a) {
+          }
+        }
+      }
+      return instance || null;
+    }
+    normalizeInstanceIdentifier(identifier = DEFAULT_ENTRY_NAME) {
+      if (this.component) {
+        return this.component.multipleInstances ? identifier : DEFAULT_ENTRY_NAME;
+      } else {
+        return identifier;
+      }
+    }
+    shouldAutoInitialize() {
+      return !!this.component && this.component.instantiationMode !== "EXPLICIT";
+    }
+  };
+  function normalizeIdentifierForFactory(identifier) {
+    return identifier === DEFAULT_ENTRY_NAME ? void 0 : identifier;
+  }
+  function isComponentEager(component) {
+    return component.instantiationMode === "EAGER";
+  }
+  var ComponentContainer = class {
+    constructor(name5) {
+      this.name = name5;
+      this.providers = /* @__PURE__ */ new Map();
+    }
+    /**
+     *
+     * @param component Component being added
+     * @param overwrite When a component with the same name has already been registered,
+     * if overwrite is true: overwrite the existing component with the new component and create a new
+     * provider with the new component. It can be useful in tests where you want to use different mocks
+     * for different tests.
+     * if overwrite is false: throw an exception
+     */
+    addComponent(component) {
+      const provider = this.getProvider(component.name);
+      if (provider.isComponentSet()) {
+        throw new Error(`Component ${component.name} has already been registered with ${this.name}`);
+      }
+      provider.setComponent(component);
+    }
+    addOrOverwriteComponent(component) {
+      const provider = this.getProvider(component.name);
+      if (provider.isComponentSet()) {
+        this.providers.delete(component.name);
+      }
+      this.addComponent(component);
+    }
+    /**
+     * getProvider provides a type safe interface where it can only be called with a field name
+     * present in NameServiceMapping interface.
+     *
+     * Firebase SDKs providing services should extend NameServiceMapping interface to register
+     * themselves.
+     */
+    getProvider(name5) {
+      if (this.providers.has(name5)) {
+        return this.providers.get(name5);
+      }
+      const provider = new Provider(name5, this);
+      this.providers.set(name5, provider);
+      return provider;
+    }
+    getProviders() {
+      return Array.from(this.providers.values());
     }
   };
 
@@ -984,6 +1319,7 @@
   var name$1 = "@firebase/firestore-compat";
   var name = "firebase";
   var version = "10.14.1";
+  var DEFAULT_ENTRY_NAME2 = "[DEFAULT]";
   var PLATFORM_LOG_STRING = {
     [name$q]: "fire-core",
     [name$p]: "fire-core-compat",
@@ -1108,7 +1444,107 @@
     ]: "FirebaseServerApp is not for use in browser environments."
   };
   var ERROR_FACTORY = new ErrorFactory("app", "Firebase", ERRORS);
+  var FirebaseAppImpl = class {
+    constructor(options, config, container) {
+      this._isDeleted = false;
+      this._options = Object.assign({}, options);
+      this._config = Object.assign({}, config);
+      this._name = config.name;
+      this._automaticDataCollectionEnabled = config.automaticDataCollectionEnabled;
+      this._container = container;
+      this.container.addComponent(new Component(
+        "app",
+        () => this,
+        "PUBLIC"
+        /* ComponentType.PUBLIC */
+      ));
+    }
+    get automaticDataCollectionEnabled() {
+      this.checkDestroyed();
+      return this._automaticDataCollectionEnabled;
+    }
+    set automaticDataCollectionEnabled(val) {
+      this.checkDestroyed();
+      this._automaticDataCollectionEnabled = val;
+    }
+    get name() {
+      this.checkDestroyed();
+      return this._name;
+    }
+    get options() {
+      this.checkDestroyed();
+      return this._options;
+    }
+    get config() {
+      this.checkDestroyed();
+      return this._config;
+    }
+    get container() {
+      return this._container;
+    }
+    get isDeleted() {
+      return this._isDeleted;
+    }
+    set isDeleted(val) {
+      this._isDeleted = val;
+    }
+    /**
+     * This function will throw an Error if the App has already been deleted -
+     * use before performing API actions on the App.
+     */
+    checkDestroyed() {
+      if (this.isDeleted) {
+        throw ERROR_FACTORY.create("app-deleted", { appName: this._name });
+      }
+    }
+  };
   var SDK_VERSION = version;
+  function initializeApp(_options, rawConfig = {}) {
+    let options = _options;
+    if (typeof rawConfig !== "object") {
+      const name6 = rawConfig;
+      rawConfig = { name: name6 };
+    }
+    const config = Object.assign({ name: DEFAULT_ENTRY_NAME2, automaticDataCollectionEnabled: false }, rawConfig);
+    const name5 = config.name;
+    if (typeof name5 !== "string" || !name5) {
+      throw ERROR_FACTORY.create("bad-app-name", {
+        appName: String(name5)
+      });
+    }
+    options || (options = getDefaultAppConfig());
+    if (!options) {
+      throw ERROR_FACTORY.create(
+        "no-options"
+        /* AppError.NO_OPTIONS */
+      );
+    }
+    const existingApp = _apps.get(name5);
+    if (existingApp) {
+      if (deepEqual(options, existingApp.options) && deepEqual(config, existingApp.config)) {
+        return existingApp;
+      } else {
+        throw ERROR_FACTORY.create("duplicate-app", { appName: name5 });
+      }
+    }
+    const container = new ComponentContainer(name5);
+    for (const component of _components.values()) {
+      container.addComponent(component);
+    }
+    const newApp = new FirebaseAppImpl(options, config, container);
+    _apps.set(name5, newApp);
+    return newApp;
+  }
+  function getApp(name5 = DEFAULT_ENTRY_NAME2) {
+    const app = _apps.get(name5);
+    if (!app && name5 === DEFAULT_ENTRY_NAME2 && getDefaultAppConfig()) {
+      return initializeApp();
+    }
+    if (!app) {
+      throw ERROR_FACTORY.create("no-app", { appName: name5 });
+    }
+    return app;
+  }
   function registerVersion(libraryKeyOrName, version5, variant) {
     var _a;
     let library = (_a = PLATFORM_LOG_STRING[libraryKeyOrName]) !== null && _a !== void 0 ? _a : libraryKeyOrName;
@@ -1484,6 +1920,10 @@
     if (!assertion) {
       debugFail(message);
     }
+  }
+  function _getCurrentUrl() {
+    var _a;
+    return typeof self !== "undefined" && ((_a = self.location) === null || _a === void 0 ? void 0 : _a.href) || "";
   }
   function _isHttpOrHttps() {
     return _getCurrentScheme() === "http:" || _getCurrentScheme() === "https:";
@@ -2016,6 +2456,9 @@
     } catch (e) {
     }
     return void 0;
+  }
+  function getIdToken(user, forceRefresh = false) {
+    return getModularInstance(user).getIdToken(forceRefresh);
   }
   async function getIdTokenResult(user, forceRefresh = false) {
     const userInternal = getModularInstance(user);
@@ -2822,6 +3265,10 @@
   function _isIOS(ua = getUA()) {
     return /iphone|ipad|ipod/i.test(ua) || /macintosh/i.test(ua) && /mobile/i.test(ua);
   }
+  function _isIOSStandalone(ua = getUA()) {
+    var _a;
+    return _isIOS(ua) && !!((_a = window.navigator) === null || _a === void 0 ? void 0 : _a.standalone);
+  }
   function _isIE10() {
     return isIE() && document.documentMode === 10;
   }
@@ -3565,6 +4012,9 @@
   function _recaptchaEnterpriseScriptUrl() {
     return externalJSProvider.recaptchaEnterpriseScript;
   }
+  function _gapiScriptUrl() {
+    return externalJSProvider.gapiScript;
+  }
   function _generateCallbackName(prefix) {
     return `__${prefix}${Math.floor(Math.random() * 1e6)}`;
   }
@@ -3712,6 +4162,24 @@
       });
     }
   }
+  function initializeAuth(app, deps) {
+    const provider = _getProvider(app, "auth");
+    if (provider.isInitialized()) {
+      const auth2 = provider.getImmediate();
+      const initialOptions = provider.getOptions();
+      if (deepEqual(initialOptions, deps !== null && deps !== void 0 ? deps : {})) {
+        return auth2;
+      } else {
+        _fail(
+          auth2,
+          "already-initialized"
+          /* AuthErrorCode.ALREADY_INITIALIZED */
+        );
+      }
+    }
+    const auth = provider.initialize({ options: deps });
+    return auth;
+  }
   function _initializeAuthInstance(auth, deps) {
     const persistence = (deps === null || deps === void 0 ? void 0 : deps.persistence) || [];
     const hierarchy = (Array.isArray(persistence) ? persistence : [persistence]).map(_getInstance);
@@ -3719,6 +4187,95 @@
       auth._updateErrorMap(deps.errorMap);
     }
     auth._initializeWithPersistence(hierarchy, deps === null || deps === void 0 ? void 0 : deps.popupRedirectResolver);
+  }
+  function connectAuthEmulator(auth, url, options) {
+    const authInternal = _castAuth(auth);
+    _assert(
+      authInternal._canInitEmulator,
+      authInternal,
+      "emulator-config-failed"
+      /* AuthErrorCode.EMULATOR_CONFIG_FAILED */
+    );
+    _assert(
+      /^https?:\/\//.test(url),
+      authInternal,
+      "invalid-emulator-scheme"
+      /* AuthErrorCode.INVALID_EMULATOR_SCHEME */
+    );
+    const disableWarnings = !!(options === null || options === void 0 ? void 0 : options.disableWarnings);
+    const protocol = extractProtocol(url);
+    const { host, port } = extractHostAndPort(url);
+    const portStr = port === null ? "" : `:${port}`;
+    authInternal.config.emulator = { url: `${protocol}//${host}${portStr}/` };
+    authInternal.settings.appVerificationDisabledForTesting = true;
+    authInternal.emulatorConfig = Object.freeze({
+      host,
+      port,
+      protocol: protocol.replace(":", ""),
+      options: Object.freeze({ disableWarnings })
+    });
+    if (!disableWarnings) {
+      emitEmulatorWarning();
+    }
+  }
+  function extractProtocol(url) {
+    const protocolEnd = url.indexOf(":");
+    return protocolEnd < 0 ? "" : url.substr(0, protocolEnd + 1);
+  }
+  function extractHostAndPort(url) {
+    const protocol = extractProtocol(url);
+    const authority = /(\/\/)?([^?#/]+)/.exec(url.substr(protocol.length));
+    if (!authority) {
+      return { host: "", port: null };
+    }
+    const hostAndPort = authority[2].split("@").pop() || "";
+    const bracketedIPv6 = /^(\[[^\]]+\])(:|$)/.exec(hostAndPort);
+    if (bracketedIPv6) {
+      const host = bracketedIPv6[1];
+      return { host, port: parsePort(hostAndPort.substr(host.length + 1)) };
+    } else {
+      const [host, port] = hostAndPort.split(":");
+      return { host, port: parsePort(port) };
+    }
+  }
+  function parsePort(portStr) {
+    if (!portStr) {
+      return null;
+    }
+    const port = Number(portStr);
+    if (isNaN(port)) {
+      return null;
+    }
+    return port;
+  }
+  function emitEmulatorWarning() {
+    function attachBanner() {
+      const el = document.createElement("p");
+      const sty = el.style;
+      el.innerText = "Running in emulator mode. Do not use with production credentials.";
+      sty.position = "fixed";
+      sty.width = "100%";
+      sty.backgroundColor = "#ffffff";
+      sty.border = ".1em solid #000000";
+      sty.color = "#b50000";
+      sty.bottom = "0px";
+      sty.left = "0px";
+      sty.margin = "0px";
+      sty.zIndex = "10000";
+      sty.textAlign = "center";
+      el.classList.add("firebase-emulator-warning");
+      document.body.appendChild(el);
+    }
+    if (typeof console !== "undefined" && typeof console.info === "function") {
+      console.info("WARNING: You are using the Auth Emulator, which is intended for local testing only.  Do not use with production credentials.");
+    }
+    if (typeof window !== "undefined" && typeof document !== "undefined") {
+      if (document.readyState === "loading") {
+        window.addEventListener("DOMContentLoaded", attachBanner);
+      } else {
+        attachBanner();
+      }
+    }
   }
   var AuthCredential = class {
     /** @internal */
@@ -4643,6 +5200,12 @@
     }
     return userCredential;
   }
+  function onIdTokenChanged(auth, nextOrObserver, error, completed) {
+    return getModularInstance(auth).onIdTokenChanged(nextOrObserver, error, completed);
+  }
+  function beforeAuthStateChanged(auth, callback, onAbort) {
+    return getModularInstance(auth).beforeAuthStateChanged(callback, onAbort);
+  }
   function startEnrollPhoneMfa(auth, request) {
     return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth, request));
   }
@@ -4820,6 +5383,7 @@
     }
   };
   BrowserLocalPersistence.type = "LOCAL";
+  var browserLocalPersistence = BrowserLocalPersistence;
   var BrowserSessionPersistence = class extends BrowserPersistenceClass {
     constructor() {
       super(
@@ -4836,6 +5400,7 @@
     }
   };
   BrowserSessionPersistence.type = "SESSION";
+  var browserSessionPersistence = BrowserSessionPersistence;
   function _allSettled(promises) {
     return Promise.all(promises.map(async (promise) => {
       try {
@@ -5051,6 +5616,9 @@
   };
   function _window() {
     return window;
+  }
+  function _setWindowLocation(url) {
+    _window().location.href = url;
   }
   function _isWorker() {
     return typeof _window()["WorkerGlobalScope"] !== "undefined" && typeof _window()["importScripts"] === "function";
@@ -5374,6 +5942,7 @@
     }
   };
   IndexedDBLocalPersistence.type = "LOCAL";
+  var indexedDBLocalPersistence = IndexedDBLocalPersistence;
   function startSignInPhoneMfa(auth, request) {
     return _performApiRequest(auth, "POST", "/v2/accounts/mfaSignIn:start", _addTidIfNecessary(auth, request));
   }
@@ -5590,6 +6159,18 @@
   };
   PhoneAuthProvider.PROVIDER_ID = "phone";
   PhoneAuthProvider.PHONE_SIGN_IN_METHOD = "phone";
+  function _withDefaultResolver(auth, resolverOverride) {
+    if (resolverOverride) {
+      return _getInstance(resolverOverride);
+    }
+    _assert(
+      auth._popupRedirectResolver,
+      auth,
+      "argument-error"
+      /* AuthErrorCode.ARGUMENT_ERROR */
+    );
+    return auth._popupRedirectResolver;
+  }
   var IdpCredential = class extends AuthCredential {
     constructor(params) {
       super(
@@ -5823,10 +6404,587 @@
     }
   };
   PopupOperation.currentPopupAction = null;
+  var PENDING_REDIRECT_KEY = "pendingRedirect";
+  var redirectOutcomeMap = /* @__PURE__ */ new Map();
+  var RedirectAction = class extends AbstractPopupRedirectOperation {
+    constructor(auth, resolver, bypassAuthState = false) {
+      super(auth, [
+        "signInViaRedirect",
+        "linkViaRedirect",
+        "reauthViaRedirect",
+        "unknown"
+        /* AuthEventType.UNKNOWN */
+      ], resolver, void 0, bypassAuthState);
+      this.eventId = null;
+    }
+    /**
+     * Override the execute function; if we already have a redirect result, then
+     * just return it.
+     */
+    async execute() {
+      let readyOutcome = redirectOutcomeMap.get(this.auth._key());
+      if (!readyOutcome) {
+        try {
+          const hasPendingRedirect = await _getAndClearPendingRedirectStatus(this.resolver, this.auth);
+          const result = hasPendingRedirect ? await super.execute() : null;
+          readyOutcome = () => Promise.resolve(result);
+        } catch (e) {
+          readyOutcome = () => Promise.reject(e);
+        }
+        redirectOutcomeMap.set(this.auth._key(), readyOutcome);
+      }
+      if (!this.bypassAuthState) {
+        redirectOutcomeMap.set(this.auth._key(), () => Promise.resolve(null));
+      }
+      return readyOutcome();
+    }
+    async onAuthEvent(event) {
+      if (event.type === "signInViaRedirect") {
+        return super.onAuthEvent(event);
+      } else if (event.type === "unknown") {
+        this.resolve(null);
+        return;
+      }
+      if (event.eventId) {
+        const user = await this.auth._redirectUserForId(event.eventId);
+        if (user) {
+          this.user = user;
+          return super.onAuthEvent(event);
+        } else {
+          this.resolve(null);
+        }
+      }
+    }
+    async onExecution() {
+    }
+    cleanUp() {
+    }
+  };
+  async function _getAndClearPendingRedirectStatus(resolver, auth) {
+    const key = pendingRedirectKey(auth);
+    const persistence = resolverPersistence(resolver);
+    if (!await persistence._isAvailable()) {
+      return false;
+    }
+    const hasPendingRedirect = await persistence._get(key) === "true";
+    await persistence._remove(key);
+    return hasPendingRedirect;
+  }
+  function _overrideRedirectResult(auth, result) {
+    redirectOutcomeMap.set(auth._key(), result);
+  }
+  function resolverPersistence(resolver) {
+    return _getInstance(resolver._redirectPersistence);
+  }
+  function pendingRedirectKey(auth) {
+    return _persistenceKeyName(PENDING_REDIRECT_KEY, auth.config.apiKey, auth.name);
+  }
+  async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false) {
+    if (_isFirebaseServerApp(auth.app)) {
+      return Promise.reject(_serverAppCurrentUserOperationNotSupportedError(auth));
+    }
+    const authInternal = _castAuth(auth);
+    const resolver = _withDefaultResolver(authInternal, resolverExtern);
+    const action = new RedirectAction(authInternal, resolver, bypassAuthState);
+    const result = await action.execute();
+    if (result && !bypassAuthState) {
+      delete result.user._redirectEventId;
+      await authInternal._persistUserIfCurrent(result.user);
+      await authInternal._setRedirectUser(null, resolverExtern);
+    }
+    return result;
+  }
   var EVENT_DUPLICATION_CACHE_DURATION_MS = 10 * 60 * 1e3;
+  var AuthEventManager = class {
+    constructor(auth) {
+      this.auth = auth;
+      this.cachedEventUids = /* @__PURE__ */ new Set();
+      this.consumers = /* @__PURE__ */ new Set();
+      this.queuedRedirectEvent = null;
+      this.hasHandledPotentialRedirect = false;
+      this.lastProcessedEventTime = Date.now();
+    }
+    registerConsumer(authEventConsumer) {
+      this.consumers.add(authEventConsumer);
+      if (this.queuedRedirectEvent && this.isEventForConsumer(this.queuedRedirectEvent, authEventConsumer)) {
+        this.sendToConsumer(this.queuedRedirectEvent, authEventConsumer);
+        this.saveEventToCache(this.queuedRedirectEvent);
+        this.queuedRedirectEvent = null;
+      }
+    }
+    unregisterConsumer(authEventConsumer) {
+      this.consumers.delete(authEventConsumer);
+    }
+    onEvent(event) {
+      if (this.hasEventBeenHandled(event)) {
+        return false;
+      }
+      let handled = false;
+      this.consumers.forEach((consumer) => {
+        if (this.isEventForConsumer(event, consumer)) {
+          handled = true;
+          this.sendToConsumer(event, consumer);
+          this.saveEventToCache(event);
+        }
+      });
+      if (this.hasHandledPotentialRedirect || !isRedirectEvent(event)) {
+        return handled;
+      }
+      this.hasHandledPotentialRedirect = true;
+      if (!handled) {
+        this.queuedRedirectEvent = event;
+        handled = true;
+      }
+      return handled;
+    }
+    sendToConsumer(event, consumer) {
+      var _a;
+      if (event.error && !isNullRedirectEvent(event)) {
+        const code = ((_a = event.error.code) === null || _a === void 0 ? void 0 : _a.split("auth/")[1]) || "internal-error";
+        consumer.onError(_createError(this.auth, code));
+      } else {
+        consumer.onAuthEvent(event);
+      }
+    }
+    isEventForConsumer(event, consumer) {
+      const eventIdMatches = consumer.eventId === null || !!event.eventId && event.eventId === consumer.eventId;
+      return consumer.filter.includes(event.type) && eventIdMatches;
+    }
+    hasEventBeenHandled(event) {
+      if (Date.now() - this.lastProcessedEventTime >= EVENT_DUPLICATION_CACHE_DURATION_MS) {
+        this.cachedEventUids.clear();
+      }
+      return this.cachedEventUids.has(eventUid(event));
+    }
+    saveEventToCache(event) {
+      this.cachedEventUids.add(eventUid(event));
+      this.lastProcessedEventTime = Date.now();
+    }
+  };
+  function eventUid(e) {
+    return [e.type, e.eventId, e.sessionId, e.tenantId].filter((v) => v).join("-");
+  }
+  function isNullRedirectEvent({ type, error }) {
+    return type === "unknown" && (error === null || error === void 0 ? void 0 : error.code) === `auth/${"no-auth-event"}`;
+  }
+  function isRedirectEvent(event) {
+    switch (event.type) {
+      case "signInViaRedirect":
+      case "linkViaRedirect":
+      case "reauthViaRedirect":
+        return true;
+      case "unknown":
+        return isNullRedirectEvent(event);
+      default:
+        return false;
+    }
+  }
+  async function _getProjectConfig(auth, request = {}) {
+    return _performApiRequest(auth, "GET", "/v1/projects", request);
+  }
+  var IP_ADDRESS_REGEX = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  var HTTP_REGEX = /^https?/;
+  async function _validateOrigin(auth) {
+    if (auth.config.emulator) {
+      return;
+    }
+    const { authorizedDomains } = await _getProjectConfig(auth);
+    for (const domain of authorizedDomains) {
+      try {
+        if (matchDomain(domain)) {
+          return;
+        }
+      } catch (_a) {
+      }
+    }
+    _fail(
+      auth,
+      "unauthorized-domain"
+      /* AuthErrorCode.INVALID_ORIGIN */
+    );
+  }
+  function matchDomain(expected) {
+    const currentUrl = _getCurrentUrl();
+    const { protocol, hostname } = new URL(currentUrl);
+    if (expected.startsWith("chrome-extension://")) {
+      const ceUrl = new URL(expected);
+      if (ceUrl.hostname === "" && hostname === "") {
+        return protocol === "chrome-extension:" && expected.replace("chrome-extension://", "") === currentUrl.replace("chrome-extension://", "");
+      }
+      return protocol === "chrome-extension:" && ceUrl.hostname === hostname;
+    }
+    if (!HTTP_REGEX.test(protocol)) {
+      return false;
+    }
+    if (IP_ADDRESS_REGEX.test(expected)) {
+      return hostname === expected;
+    }
+    const escapedDomainPattern = expected.replace(/\./g, "\\.");
+    const re = new RegExp("^(.+\\." + escapedDomainPattern + "|" + escapedDomainPattern + ")$", "i");
+    return re.test(hostname);
+  }
   var NETWORK_TIMEOUT = new Delay(3e4, 6e4);
+  function resetUnloadedGapiModules() {
+    const beacon = _window().___jsl;
+    if (beacon === null || beacon === void 0 ? void 0 : beacon.H) {
+      for (const hint of Object.keys(beacon.H)) {
+        beacon.H[hint].r = beacon.H[hint].r || [];
+        beacon.H[hint].L = beacon.H[hint].L || [];
+        beacon.H[hint].r = [...beacon.H[hint].L];
+        if (beacon.CP) {
+          for (let i = 0; i < beacon.CP.length; i++) {
+            beacon.CP[i] = null;
+          }
+        }
+      }
+    }
+  }
+  function loadGapi(auth) {
+    return new Promise((resolve, reject) => {
+      var _a, _b, _c;
+      function loadGapiIframe() {
+        resetUnloadedGapiModules();
+        gapi.load("gapi.iframes", {
+          callback: () => {
+            resolve(gapi.iframes.getContext());
+          },
+          ontimeout: () => {
+            resetUnloadedGapiModules();
+            reject(_createError(
+              auth,
+              "network-request-failed"
+              /* AuthErrorCode.NETWORK_REQUEST_FAILED */
+            ));
+          },
+          timeout: NETWORK_TIMEOUT.get()
+        });
+      }
+      if ((_b = (_a = _window().gapi) === null || _a === void 0 ? void 0 : _a.iframes) === null || _b === void 0 ? void 0 : _b.Iframe) {
+        resolve(gapi.iframes.getContext());
+      } else if (!!((_c = _window().gapi) === null || _c === void 0 ? void 0 : _c.load)) {
+        loadGapiIframe();
+      } else {
+        const cbName = _generateCallbackName("iframefcb");
+        _window()[cbName] = () => {
+          if (!!gapi.load) {
+            loadGapiIframe();
+          } else {
+            reject(_createError(
+              auth,
+              "network-request-failed"
+              /* AuthErrorCode.NETWORK_REQUEST_FAILED */
+            ));
+          }
+        };
+        return _loadJS(`${_gapiScriptUrl()}?onload=${cbName}`).catch((e) => reject(e));
+      }
+    }).catch((error) => {
+      cachedGApiLoader = null;
+      throw error;
+    });
+  }
+  var cachedGApiLoader = null;
+  function _loadGapi(auth) {
+    cachedGApiLoader = cachedGApiLoader || loadGapi(auth);
+    return cachedGApiLoader;
+  }
   var PING_TIMEOUT = new Delay(5e3, 15e3);
+  var IFRAME_PATH = "__/auth/iframe";
+  var EMULATED_IFRAME_PATH = "emulator/auth/iframe";
+  var IFRAME_ATTRIBUTES = {
+    style: {
+      position: "absolute",
+      top: "-100px",
+      width: "1px",
+      height: "1px"
+    },
+    "aria-hidden": "true",
+    tabindex: "-1"
+  };
+  var EID_FROM_APIHOST = /* @__PURE__ */ new Map([
+    ["identitytoolkit.googleapis.com", "p"],
+    ["staging-identitytoolkit.sandbox.googleapis.com", "s"],
+    ["test-identitytoolkit.sandbox.googleapis.com", "t"]
+    // test
+  ]);
+  function getIframeUrl(auth) {
+    const config = auth.config;
+    _assert(
+      config.authDomain,
+      auth,
+      "auth-domain-config-required"
+      /* AuthErrorCode.MISSING_AUTH_DOMAIN */
+    );
+    const url = config.emulator ? _emulatorUrl(config, EMULATED_IFRAME_PATH) : `https://${auth.config.authDomain}/${IFRAME_PATH}`;
+    const params = {
+      apiKey: config.apiKey,
+      appName: auth.name,
+      v: SDK_VERSION
+    };
+    const eid = EID_FROM_APIHOST.get(auth.config.apiHost);
+    if (eid) {
+      params.eid = eid;
+    }
+    const frameworks = auth._getFrameworks();
+    if (frameworks.length) {
+      params.fw = frameworks.join(",");
+    }
+    return `${url}?${querystring(params).slice(1)}`;
+  }
+  async function _openIframe(auth) {
+    const context = await _loadGapi(auth);
+    const gapi2 = _window().gapi;
+    _assert(
+      gapi2,
+      auth,
+      "internal-error"
+      /* AuthErrorCode.INTERNAL_ERROR */
+    );
+    return context.open({
+      where: document.body,
+      url: getIframeUrl(auth),
+      messageHandlersFilter: gapi2.iframes.CROSS_ORIGIN_IFRAMES_FILTER,
+      attributes: IFRAME_ATTRIBUTES,
+      dontclear: true
+    }, (iframe) => new Promise(async (resolve, reject) => {
+      await iframe.restyle({
+        // Prevent iframe from closing on mouse out.
+        setHideOnLeave: false
+      });
+      const networkError = _createError(
+        auth,
+        "network-request-failed"
+        /* AuthErrorCode.NETWORK_REQUEST_FAILED */
+      );
+      const networkErrorTimer = _window().setTimeout(() => {
+        reject(networkError);
+      }, PING_TIMEOUT.get());
+      function clearTimerAndResolve() {
+        _window().clearTimeout(networkErrorTimer);
+        resolve(iframe);
+      }
+      iframe.ping(clearTimerAndResolve).then(clearTimerAndResolve, () => {
+        reject(networkError);
+      });
+    }));
+  }
+  var BASE_POPUP_OPTIONS = {
+    location: "yes",
+    resizable: "yes",
+    statusbar: "yes",
+    toolbar: "no"
+  };
+  var DEFAULT_WIDTH = 500;
+  var DEFAULT_HEIGHT = 600;
+  var TARGET_BLANK = "_blank";
+  var FIREFOX_EMPTY_URL = "http://localhost";
+  var AuthPopup = class {
+    constructor(window2) {
+      this.window = window2;
+      this.associatedEvent = null;
+    }
+    close() {
+      if (this.window) {
+        try {
+          this.window.close();
+        } catch (e) {
+        }
+      }
+    }
+  };
+  function _open(auth, url, name5, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT) {
+    const top = Math.max((window.screen.availHeight - height) / 2, 0).toString();
+    const left = Math.max((window.screen.availWidth - width) / 2, 0).toString();
+    let target = "";
+    const options = Object.assign(Object.assign({}, BASE_POPUP_OPTIONS), {
+      width: width.toString(),
+      height: height.toString(),
+      top,
+      left
+    });
+    const ua = getUA().toLowerCase();
+    if (name5) {
+      target = _isChromeIOS(ua) ? TARGET_BLANK : name5;
+    }
+    if (_isFirefox(ua)) {
+      url = url || FIREFOX_EMPTY_URL;
+      options.scrollbars = "yes";
+    }
+    const optionsString = Object.entries(options).reduce((accum, [key, value]) => `${accum}${key}=${value},`, "");
+    if (_isIOSStandalone(ua) && target !== "_self") {
+      openAsNewWindowIOS(url || "", target);
+      return new AuthPopup(null);
+    }
+    const newWin = window.open(url || "", target, optionsString);
+    _assert(
+      newWin,
+      auth,
+      "popup-blocked"
+      /* AuthErrorCode.POPUP_BLOCKED */
+    );
+    try {
+      newWin.focus();
+    } catch (e) {
+    }
+    return new AuthPopup(newWin);
+  }
+  function openAsNewWindowIOS(url, target) {
+    const el = document.createElement("a");
+    el.href = url;
+    el.target = target;
+    const click = document.createEvent("MouseEvent");
+    click.initMouseEvent("click", true, true, window, 1, 0, 0, 0, 0, false, false, false, false, 1, null);
+    el.dispatchEvent(click);
+  }
+  var WIDGET_PATH = "__/auth/handler";
+  var EMULATOR_WIDGET_PATH = "emulator/auth/handler";
   var FIREBASE_APP_CHECK_FRAGMENT_ID = encodeURIComponent("fac");
+  async function _getRedirectUrl(auth, provider, authType, redirectUrl, eventId, additionalParams) {
+    _assert(
+      auth.config.authDomain,
+      auth,
+      "auth-domain-config-required"
+      /* AuthErrorCode.MISSING_AUTH_DOMAIN */
+    );
+    _assert(
+      auth.config.apiKey,
+      auth,
+      "invalid-api-key"
+      /* AuthErrorCode.INVALID_API_KEY */
+    );
+    const params = {
+      apiKey: auth.config.apiKey,
+      appName: auth.name,
+      authType,
+      redirectUrl,
+      v: SDK_VERSION,
+      eventId
+    };
+    if (provider instanceof FederatedAuthProvider) {
+      provider.setDefaultLanguage(auth.languageCode);
+      params.providerId = provider.providerId || "";
+      if (!isEmpty(provider.getCustomParameters())) {
+        params.customParameters = JSON.stringify(provider.getCustomParameters());
+      }
+      for (const [key, value] of Object.entries(additionalParams || {})) {
+        params[key] = value;
+      }
+    }
+    if (provider instanceof BaseOAuthProvider) {
+      const scopes = provider.getScopes().filter((scope) => scope !== "");
+      if (scopes.length > 0) {
+        params.scopes = scopes.join(",");
+      }
+    }
+    if (auth.tenantId) {
+      params.tid = auth.tenantId;
+    }
+    const paramsDict = params;
+    for (const key of Object.keys(paramsDict)) {
+      if (paramsDict[key] === void 0) {
+        delete paramsDict[key];
+      }
+    }
+    const appCheckToken = await auth._getAppCheckToken();
+    const appCheckTokenFragment = appCheckToken ? `#${FIREBASE_APP_CHECK_FRAGMENT_ID}=${encodeURIComponent(appCheckToken)}` : "";
+    return `${getHandlerBase(auth)}?${querystring(paramsDict).slice(1)}${appCheckTokenFragment}`;
+  }
+  function getHandlerBase({ config }) {
+    if (!config.emulator) {
+      return `https://${config.authDomain}/${WIDGET_PATH}`;
+    }
+    return _emulatorUrl(config, EMULATOR_WIDGET_PATH);
+  }
+  var WEB_STORAGE_SUPPORT_KEY = "webStorageSupport";
+  var BrowserPopupRedirectResolver = class {
+    constructor() {
+      this.eventManagers = {};
+      this.iframes = {};
+      this.originValidationPromises = {};
+      this._redirectPersistence = browserSessionPersistence;
+      this._completeRedirectFn = _getRedirectResult;
+      this._overrideRedirectResult = _overrideRedirectResult;
+    }
+    // Wrapping in async even though we don't await anywhere in order
+    // to make sure errors are raised as promise rejections
+    async _openPopup(auth, provider, authType, eventId) {
+      var _a;
+      debugAssert((_a = this.eventManagers[auth._key()]) === null || _a === void 0 ? void 0 : _a.manager, "_initialize() not called before _openPopup()");
+      const url = await _getRedirectUrl(auth, provider, authType, _getCurrentUrl(), eventId);
+      return _open(auth, url, _generateEventId());
+    }
+    async _openRedirect(auth, provider, authType, eventId) {
+      await this._originValidation(auth);
+      const url = await _getRedirectUrl(auth, provider, authType, _getCurrentUrl(), eventId);
+      _setWindowLocation(url);
+      return new Promise(() => {
+      });
+    }
+    _initialize(auth) {
+      const key = auth._key();
+      if (this.eventManagers[key]) {
+        const { manager, promise: promise2 } = this.eventManagers[key];
+        if (manager) {
+          return Promise.resolve(manager);
+        } else {
+          debugAssert(promise2, "If manager is not set, promise should be");
+          return promise2;
+        }
+      }
+      const promise = this.initAndGetManager(auth);
+      this.eventManagers[key] = { promise };
+      promise.catch(() => {
+        delete this.eventManagers[key];
+      });
+      return promise;
+    }
+    async initAndGetManager(auth) {
+      const iframe = await _openIframe(auth);
+      const manager = new AuthEventManager(auth);
+      iframe.register("authEvent", (iframeEvent) => {
+        _assert(
+          iframeEvent === null || iframeEvent === void 0 ? void 0 : iframeEvent.authEvent,
+          auth,
+          "invalid-auth-event"
+          /* AuthErrorCode.INVALID_AUTH_EVENT */
+        );
+        const handled = manager.onEvent(iframeEvent.authEvent);
+        return {
+          status: handled ? "ACK" : "ERROR"
+          /* GapiOutcome.ERROR */
+        };
+      }, gapi.iframes.CROSS_ORIGIN_IFRAMES_FILTER);
+      this.eventManagers[auth._key()] = { manager };
+      this.iframes[auth._key()] = iframe;
+      return manager;
+    }
+    _isIframeWebStorageSupported(auth, cb) {
+      const iframe = this.iframes[auth._key()];
+      iframe.send(WEB_STORAGE_SUPPORT_KEY, { type: WEB_STORAGE_SUPPORT_KEY }, (result) => {
+        var _a;
+        const isSupported = (_a = result === null || result === void 0 ? void 0 : result[0]) === null || _a === void 0 ? void 0 : _a[WEB_STORAGE_SUPPORT_KEY];
+        if (isSupported !== void 0) {
+          cb(!!isSupported);
+        }
+        _fail(
+          auth,
+          "internal-error"
+          /* AuthErrorCode.INTERNAL_ERROR */
+        );
+      }, gapi.iframes.CROSS_ORIGIN_IFRAMES_FILTER);
+    }
+    _originValidation(auth) {
+      const key = auth._key();
+      if (!this.originValidationPromises[key]) {
+        this.originValidationPromises[key] = _validateOrigin(auth);
+      }
+      return this.originValidationPromises[key];
+    }
+    get _shouldInitProactively() {
+      return _isMobileBrowser() || _isSafari() || _isIOS();
+    }
+  };
+  var browserPopupRedirectResolver = BrowserPopupRedirectResolver;
   var MultiFactorAssertionImpl = class {
     constructor(factorId) {
       this.factorId = factorId;
@@ -6163,6 +7321,53 @@
   }
   var DEFAULT_ID_TOKEN_MAX_AGE = 5 * 60;
   var authIdTokenMaxAge = getExperimentalSetting("authIdTokenMaxAge") || DEFAULT_ID_TOKEN_MAX_AGE;
+  var lastPostedIdToken = null;
+  var mintCookieFactory = (url) => async (user) => {
+    const idTokenResult = user && await user.getIdTokenResult();
+    const idTokenAge = idTokenResult && ((/* @__PURE__ */ new Date()).getTime() - Date.parse(idTokenResult.issuedAtTime)) / 1e3;
+    if (idTokenAge && idTokenAge > authIdTokenMaxAge) {
+      return;
+    }
+    const idToken = idTokenResult === null || idTokenResult === void 0 ? void 0 : idTokenResult.token;
+    if (lastPostedIdToken === idToken) {
+      return;
+    }
+    lastPostedIdToken = idToken;
+    await fetch(url, {
+      method: idToken ? "POST" : "DELETE",
+      headers: idToken ? {
+        "Authorization": `Bearer ${idToken}`
+      } : {}
+    });
+  };
+  function getAuth(app = getApp()) {
+    const provider = _getProvider(app, "auth");
+    if (provider.isInitialized()) {
+      return provider.getImmediate();
+    }
+    const auth = initializeAuth(app, {
+      popupRedirectResolver: browserPopupRedirectResolver,
+      persistence: [
+        indexedDBLocalPersistence,
+        browserLocalPersistence,
+        browserSessionPersistence
+      ]
+    });
+    const authTokenSyncPath = getExperimentalSetting("authTokenSyncURL");
+    if (authTokenSyncPath && typeof isSecureContext === "boolean" && isSecureContext) {
+      const authTokenSyncUrl = new URL(authTokenSyncPath, location.origin);
+      if (location.origin === authTokenSyncUrl.origin) {
+        const mintCookie = mintCookieFactory(authTokenSyncUrl.toString());
+        beforeAuthStateChanged(auth, mintCookie, () => mintCookie(auth.currentUser));
+        onIdTokenChanged(auth, (user) => mintCookie(user));
+      }
+    }
+    const authEmulatorHost = getDefaultEmulatorHost("auth");
+    if (authEmulatorHost) {
+      connectAuthEmulator(auth, `http://${authEmulatorHost}`);
+    }
+    return auth;
+  }
   function getScriptParentElement() {
     var _a, _b;
     return (_b = (_a = document.getElementsByTagName("head")) === null || _a === void 0 ? void 0 : _a[0]) !== null && _b !== void 0 ? _b : document;
@@ -6710,6 +7915,10 @@
       await registrationPromise;
     }
   }
+  function getInstallations(app = getApp()) {
+    const installationsImpl = _getProvider(app, "installations").getImmediate();
+    return installationsImpl;
+  }
   function extractAppConfig(app) {
     if (!app || !app.options) {
       throw getMissingValueError("App Configuration");
@@ -6797,7 +8006,25 @@
     event.respondWith(fetchWithFirebaseHeaders(event.request));
   });
   async function fetchWithFirebaseHeaders(request) {
-    return await fetch(request);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const installations = getInstallations(app);
+    const headers = new Headers(request.headers);
+    const [authIdToken, installationToken] = await Promise.all([
+      getAuthIdToken(auth),
+      getToken(installations)
+    ]);
+    headers.append("Firebase-Instance-ID-Token", installationToken);
+    if (authIdToken)
+      headers.append("Authorization", `Bearer ${authIdToken}`);
+    const newRequest = new Request(request, { headers });
+    return await fetch(newRequest);
+  }
+  async function getAuthIdToken(auth) {
+    await auth.authStateReady();
+    if (!auth.currentUser)
+      return;
+    return await getIdToken(auth.currentUser);
   }
 })();
 /*! Bundled license information:
@@ -6891,8 +8118,6 @@
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/util/dist/index.esm2017.js:
   (**
    * @license
    * Copyright 2021 Google LLC
@@ -7144,42 +8369,6 @@
    * limitations under the License.
    *)
 
-@firebase/component/dist/esm/index.esm2017.js:
-  (**
-   * @license
-   * Copyright 2019 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/component/dist/esm/index.esm2017.js:
-  (**
-   * @license
-   * Copyright 2019 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
 @firebase/logger/dist/esm/index.esm2017.js:
   (**
    * @license
@@ -7233,26 +8422,6 @@
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/app/dist/esm/index.esm2017.js:
-  (**
-   * @license
-   * Copyright 2019 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/app/dist/esm/index.esm2017.js:
   (**
    * @license
    * Copyright 2023 Google LLC
@@ -7465,42 +8634,6 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
   (**
    * @license
    * Copyright 2019 Google LLC
@@ -7639,24 +8772,6 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
   (**
    * @license
    * Copyright 2019 Google LLC
@@ -8119,97 +9234,9 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2019 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
   (**
    * @license
    * Copyright 2020 Google LLC.
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2019 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.
@@ -8311,8 +9338,6 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
   (**
    * @license
    * Copyright 2019 Google LLC
@@ -8329,22 +9354,6 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
 
 @firebase/auth/dist/esm2017/index-68602d24.js:
   (**
@@ -8399,137 +9408,9 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
   (**
    * @license
    * Copyright 2020 Google LLC.
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC.
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC.
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2021 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/auth/dist/esm2017/index-68602d24.js:
-  (**
-   * @license
-   * Copyright 2020 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.
@@ -8649,27 +9530,9 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/installations/dist/esm/index.esm2017.js:
   (**
    * @license
    * Copyright 2019 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2020 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.
