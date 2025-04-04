@@ -1,33 +1,36 @@
 {
-  "name": "cloud-run-microservice-template",
-  "version": "1.0.0",
-  "description": "Microservice template for Cloud Run",
-  "engines": {
-    "node": ">=20"
-  },
-  "scripts": {
-    "start": "functions-framework --source=build/src/index.js --target=getUsers",
-    "compile": "tsc",
-    "predeploy": "npm i && npm run compile",
-    "deploy": "gcloud functions deploy $FUNCTION_NAME --region=$REGION --runtime nodejs16 --entry-point=index --gen2 --source ./build --trigger-event=google.storage.object.finalize --trigger-resource=$BUCKET --trigger-service-account=$TRIGGER_SERVICE_ACCOUNT_ADRESS --set-secrets=\"SECRET_API_KEY=$SECRET_ID:latest\" --service-account=$SERVICE_ACCOUNT_ADRESS",
-    "watch": "concurrently \"npm run compile -- --watch\" \"nodemon --watch ./build/ --exec npm run debug\"",
-    "debug": "export SECRET_API_KEY=$(gcloud secrets versions access 1 --secret='API_KEY') && node --inspect node_modules/.bin/functions-framework --source=build/src/ --target=index"
-  },
-  "author": "Google LLC",
-  "license": "Apache-2.0",
-  "dependencies": {
-    "@google-cloud/firestore": "^6.0.0",
-    "@google-cloud/functions-framework": "^3.1.2",
-    "@google-cloud/vision": "^3.0.0",
-    "@google/events": "^5.4.0",
-    "fetch-cookie": "^3.1.0",
-    "form-data": "^4.0.2"
-  },
-  "devDependencies": {
-    "@types/node": "^22.13.17",
-    "concurrently": "^7.1.0",
-    "gts": "^3.1.1",
-    "nodemon": "^2.0.16",
-    "typescript": "^5.8.2"
-  }
+	"name": "my-app",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "npm run build-service-worker && next build",
+		"build-service-worker": "npx esbuild auth-service-worker.js --bundle --outfile=public/auth-service-worker.js",
+		"start": "next start",
+		"lint": "next lint"
+	},
+	"dependencies": {
+		"@google/generative-ai": "^0.10.0",
+		"firebase": "^10.11.1",
+		"firebase-admin": "^12.1.0",
+		"next": "^14.2.3",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"server-only": "^0.0.1"
+	},
+	"browser": {
+		"fs": false,
+		"os": false,
+		"path": false,
+		"child_process": false,
+		"net": false,
+		"tls": false
+	},
+	"devDependencies": {
+		"@types/react": "19.1.0",
+		"@types/node": "^22.13.17",
+		"esbuild": "^0.20.2",
+		"gts": "^3.1.1",
+		"typescript": "5.8.2"
+	}
 }
