@@ -30,4 +30,4 @@ COPY . ./
 RUN npm run build
 
 # Run the web service on container startup.
-ENTRYPOINT [ "npm", "start" ]
+ENTRYPOINT [ "npm", "start", "--", "-p", "8080" ]
