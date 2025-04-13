@@ -1,14 +1,17 @@
 env:
+  # Set this with firebase apphosting:secrets:set
+  - variable: GEMINI_API_KEY
+    secret: gemini-api-key
   # Get these values from the Firebase console
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyAhSF_LG6yHe4ZhNqwkYJtIPWqQMywx9k8
+    value: TODO
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: rideup-d9442.firebaseapp.com
+    value: TODO
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: rideup-d9442
+    value: TODO
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: rideup-d9442.firebasestorage.app
+    value: TODO
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "615148465536"
+    value: TODO
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: 1:615148465536:web:b91205f11bbc6e47602565
+    value: TODO
