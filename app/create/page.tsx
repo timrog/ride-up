@@ -1,17 +1,19 @@
 "use client"
 import { useState, ChangeEvent, FormEvent } from 'react'
-import { db } from '../../lib/firebase/initFirebase'
+import { db } from '@/lib/firebase/initFirebase'
 import { collection, addDoc, DocumentReference, DocumentData } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
 import { Container, Form, Button } from 'react-bootstrap'
-import styles from "../page.module.css";
+import styles from "../page.module.css"
 
-interface FormDataType {
+type FormDataType = {
     title: string
     date: string
     startTime: string
     endTime: string
     description: string
+    routeLink: string
+    location: string
 }
 
 export default function CreateEvent() {
@@ -21,7 +23,9 @@ export default function CreateEvent() {
         date: '',
         startTime: '',
         endTime: '',
-        description: ''
+        description: '',
+        routeLink: '',
+        location: ''
     })
 
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
@@ -41,7 +45,7 @@ export default function CreateEvent() {
                 createdAt: new Date(),
             })
 
-            router.push('/events')
+            router.push(`/${docRef.id}`)
         } catch (error) {
             console.error('Error adding event: ', error)
         }
@@ -72,9 +76,7 @@ export default function CreateEvent() {
                         onChange={handleChange}
                         required
                     />
-                </Form.Group>
 
-                <Form.Group className="mb-3">
                     <Form.Label>Start Time</Form.Label>
                     <Form.Control
                         type="time"
@@ -83,9 +85,7 @@ export default function CreateEvent() {
                         onChange={handleChange}
                         required
                     />
-                </Form.Group>
 
-                <Form.Group className="mb-3">
                     <Form.Label>End Time</Form.Label>
                     <Form.Control
                         type="time"
@@ -104,6 +104,16 @@ export default function CreateEvent() {
                         value={formData.description}
                         onChange={handleChange}
                         rows={3}
+                    />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                    <Form.Label>Route</Form.Label>
+                    <Form.Control
+                        name="routeLink"
+                        pattern="^(https?\:\/\/?(www\.)?strava\.com\/routes\/\d{6,}|https\:\/\/(www\.)?ridewithgps\.com\/routes\/\d{6,})$"
+                        value={formData.routeLink}
+                        onChange={handleChange}
                     />
                 </Form.Group>
 

@@ -1,70 +1,81 @@
 'use client'
-import { initFirebase } from '../../lib/firebase/initFirebase'
-import { useEffect, useState } from 'react'
-import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth'
+import { useEffect } from 'react'
+import { setCookie, deleteCookie } from "cookies-next"
 import {
-    getAuth,
-    GoogleAuthProvider,
-    TwitterAuthProvider,
-    GithubAuthProvider,
-    EmailAuthProvider,
-    User,
-    Auth
-} from "firebase/auth";
-import { setUserCookie } from '../../lib/firebase/userCookies'
-import { mapUserData } from '../../lib/firebase/mapUserData'
-import * as firebaseui from 'firebaseui';
+    signInWithGoogle,
+    signOut,
+    onIdTokenChanged,
+} from "@/lib/firebase/auth"
 
-initFirebase()
-
-const auth: Auth = getAuth()
-
-const firebaseAuthConfig: firebaseui.auth.Config = {
-    signInFlow: 'popup',
-    // Auth providers
-    // https://github.com/firebase/firebaseui-web#configure-oauth-providers
-    signInOptions: [
-        {
-            provider: EmailAuthProvider.PROVIDER_ID,
-            requireDisplayName: true,
-        },
-        // add additional auth flows below
-        GoogleAuthProvider.PROVIDER_ID,
-        TwitterAuthProvider.PROVIDER_ID,
-        GithubAuthProvider.PROVIDER_ID,
-    ],
-    signInSuccessUrl: '/',
-    credentialHelper: 'none',
-    callbacks: {
-        signInSuccessWithAuthResult: ({ user }, redirectUrl) => {
-            const userData = mapUserData(user)
-            setUserCookie(userData)
-            return true
-        },
-    },
-}
-
-const FirebaseAuth: React.FC = () => {
-    // Do not SSR FirebaseUI, because it is not supported.
-    // https://github.com/firebase/firebaseui-web/issues/213
-    const [renderAuth, setRenderAuth] = useState<boolean>(false)
+function useUserSession(initialUser) {
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            setRenderAuth(true)
-        }
-    }, [])
-    return (
-        <div>
-            {
-                renderAuth ? (
-                    <StyledFirebaseAuth
-                        uiConfig={firebaseAuthConfig}
-                        firebaseAuth={auth}
-                    />
-                ) : null
+        return onIdTokenChanged(async (user) => {
+            console.log("id token changed")
+            if (user) {
+                const idToken = await user.getIdToken()
+                await setCookie("__session", idToken)
+            } else {
+                await deleteCookie("__session")
             }
-        </div>
-    )
+            if (initialUser?.uid === user?.uid) {
+                return
+            }
+            window.location.reload()
+        })
+    }, [initialUser])
+
+    return initialUser
 }
 
-export default FirebaseAuth
+export default function FirebaseAuth({ initialUser }) {
+    const user = useUserSession(initialUser)
+    const handleSignOut = (event) => {
+        event.preventDefault()
+        signOut()
+    }
+
+    const handleSignIn = (event) => {
+        event.preventDefault()
+        signInWithGoogle()
+    }
+
+    return (
+        <header>
+            {user ? (
+                <>
+                    <div className="profile">
+                        <p>
+                            <img
+                                className="profileImage"
+                                src={user.photoURL || "/profile.svg"}
+                                alt={user.email}
+                            />
+                            {user.displayName}
+                        </p>
+
+                        <div className="menu">
+                            ...
+                            <ul>
+                                <li>{user.displayName}</li>
+
+                                <li>
+                                    <a href="#" onClick={handleSignOut}>
+                                        Sign Out
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="profile">
+                    <a href="#" onClick={handleSignIn}>
+                        <img src="/profile.svg" alt="A placeholder user image" />
+                        Sign In with Google
+                    </a>
+                </div>
+            )}
+        </header>
+    )
+
+}
