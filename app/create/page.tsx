@@ -1,10 +1,12 @@
 "use client"
-import { useState, ChangeEvent, FormEvent } from 'react'
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react'
 import { db } from '@/lib/firebase/initFirebase'
 import { collection, addDoc, DocumentReference, DocumentData } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
 import { Container, Form, Button } from 'react-bootstrap'
 import styles from "../page.module.css"
+import { getAuth } from "firebase/auth"
+import { onIdTokenChanged } from "@/lib/firebase/auth"
 
 type FormDataType = {
     title: string
@@ -51,8 +53,17 @@ export default function CreateEvent() {
         }
     }
 
+    const [roles, setRoles] = useState({})
+    useEffect(() => {
+        return onIdTokenChanged(async (user) => {
+            user.getIdTokenResult().then(result => setRoles(result.claims.roles))
+        })
+    }, [])
+
     return (
         <Container className="mt-4">
+            {JSON.stringify(roles)}
+
             <h1 className="mb-4">Create New Event</h1>
 
             <Form onSubmit={handleSubmit}>
