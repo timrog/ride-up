@@ -2,10 +2,12 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import 'bootstrap/dist/css/bootstrap.min.css'
-import FirebaseAuth from "../components/auth/FirebaseAuth"
 import { getAuthenticatedAppForUser } from "@/lib/firebase/serverApp"
 import { initFirebase } from "@/lib/firebase/initFirebase"
-import { Nav, Navbar, NavbarBrand, NavbarCollapse, NavbarToggle, NavLink } from "react-bootstrap"
+import { Nav, Navbar, NavbarBrand, NavbarCollapse, NavbarToggle, NavItem, NavLink } from "react-bootstrap"
+import StyledJsxRegistry from "./registry"
+import FirebaseAuth from "./firebaseAuth"
+import { User } from "firebase/auth"
 initFirebase()
 
 const geistSans = Geist({
@@ -33,25 +35,29 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <header>
-          <Navbar bg="primary">
-            <NavbarBrand>
-              <img src="https://vcgh.co.uk/wp-content/uploads/2024/06/Banner-trans.svg" alt="Logo" height="40" />
-            </NavbarBrand>
-            <NavbarToggle aria-controls="basic-navbar-nav" />
-            <NavbarCollapse id="basic-navbar-nav">
-              <Nav className="me-auto">
+        <StyledJsxRegistry>
+          <header>
+            <Navbar bg="primary">
+              <NavbarBrand>
+                <img src="https://vcgh.co.uk/wp-content/uploads/2024/06/Banner-trans.svg" alt="Logo" height="40" />
+              </NavbarBrand>
+              <NavItem>
                 <NavLink href="/">Events</NavLink>
+              </NavItem>
+              <NavItem>
                 <NavLink href="/create">Post a ride</NavLink>
-              </Nav>
-              <FirebaseAuth initialUser={currentUser?.toJSON()} />
-            </NavbarCollapse>
-          </Navbar>
-        </header>
-        <main>
-          {children}
-        </main>
+              </NavItem>
+              <FirebaseAuth initialUser={currentUser.toJSON() as User} />
+              <NavbarToggle aria-controls="basic-navbar-nav" />
+            </Navbar>
+          </header>
+          <main>
+            {children}
+          </main>
+        </StyledJsxRegistry>
       </body>
     </html>
   )
 }
+
+

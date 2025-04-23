@@ -9,12 +9,17 @@ export interface CalendarEvent {
     location: string
     description: string
     routeLink: string
+    createdBy: string
+}
+
+export interface EventActivity {
+    signups: { [userId: string]: Signup }
+    comments: Comment[]
 }
 
 export interface Signup {
     createdAt: Timestamp
     name: string
-    userId: string
 }
 
 export interface Comment {
@@ -23,5 +28,3 @@ export interface Comment {
     userId: string
     text: string
 }
-
-export type EventMessage = ({ type: 'c' } & Comment) | ({ type: 's' } & Signup)

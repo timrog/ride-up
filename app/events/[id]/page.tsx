@@ -1,27 +1,24 @@
 import React from 'react'
 import 'bootstrap/dist/css/bootstrap.min.css'
-import { getDoc, doc, DocumentSnapshot, getDocs, collection } from 'firebase/firestore'
-import { getAuth } from "firebase/auth"
+import { getDoc, doc, DocumentSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
-import { CalendarEvent, Signup } from 'app/types'
-import SignupButton from './signUpButton'
+import { CalendarEvent, EventActivity } from 'app/types'
 import { getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
-import Messages from './messages'
+import Activity from './activity'
 import RouteEmbed from "./routeEmbed"
 
-export async function generateStaticParams() {
-    return []
-}
-
-async function getEventData(id: string) {
+async function getEvent(id: string) {
     const eventDoc = await getDoc(doc(db, 'events', id)) as DocumentSnapshot<CalendarEvent>
     return eventDoc.data()
 }
 
-async function getSignups(id: string) {
-    const eventSubCollections = await getDocs(collection(db, 'events', id, 'signups'))
-    const results = eventSubCollections.docs.map((subCollection) => subCollection.data() as Signup)
-    return results
+async function getActivity(id: string) {
+    const activityDoc = await getDoc(doc(db, 'events', id, 'activity', 'private')) as DocumentSnapshot<EventActivity>
+    return activityDoc.exists() ?
+        activityDoc.data() :
+        {
+            signups: {}, comments: []
+        }
 }
 
 const EventPage = async ({
@@ -30,11 +27,7 @@ const EventPage = async ({
     params: { id: string }
 }) => {
     const id = (await params).id
-    const event = await getEventData(id)
-    const signups = await getSignups(id)
-
-    const app = await getAuthenticatedAppForUser()
-    const activeSignup = signups.some(s => s.userId === app.currentUser.uid)
+    const event = await getEvent(id)
 
     const Details = () => (
         <div className="card p-3 mb-4">
@@ -42,7 +35,6 @@ const EventPage = async ({
             <p>{event.date.toString()}</p>
             <p>{event.location}</p>
             <p style={{ whiteSpace: 'pre-line' }}>{event.description}</p>
-            <SignupButton id={id} active={activeSignup} />
         </div>
     )
 
@@ -53,7 +45,7 @@ const EventPage = async ({
             <div className="row g-4">
                 <div className="col-md-6">
                     <Details />
-                    <Messages id={id} />
+                    <Activity id={id} />
                 </div>
                 <div className="col-md-6">
                     <Route />

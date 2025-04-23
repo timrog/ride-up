@@ -1,33 +1,35 @@
 
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/initFirebase';
-import React from 'react';
-import { Card, Container, Row, Col, Badge, CardBody, CardTitle, CardText, CardSubtitle } from 'react-bootstrap';
-import Link from 'next/link';
+import { collection, query, getDocs, Timestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase/initFirebase'
+import React from 'react'
+import { Card, Container, Row, Col, Badge, CardBody, CardTitle, CardText, CardSubtitle } from 'react-bootstrap'
+import Link from 'next/link'
 import { CalendarEvent } from './types'
+import { InstallPrompt } from "./installPrompt"
+import { PushNotificationManager } from "./pushNotifications"
 
 async function getUpcomingEvents(): Promise<CalendarEvent[]> {
-    const eventsRef = collection(db, 'events');
-    const now = Timestamp.now();
+    const eventsRef = collection(db, 'events')
+    const now = Timestamp.now()
 
     // Query for events with date greater than current time
-    const q = query(eventsRef);
+    const q = query(eventsRef)
 
-    const querySnapshot = await getDocs(q);
-    const events: CalendarEvent[] = [];
+    const querySnapshot = await getDocs(q)
+    const events: CalendarEvent[] = []
 
     querySnapshot.forEach((doc) => {
         events.push({
             id: doc.id,
             ...doc.data()
-        } as CalendarEvent);
-    });
+        } as CalendarEvent)
+    })
 
-    return events;
+    return events
 }
 
 export default async function EventList() {
-    const events = await getUpcomingEvents();
+    const events = await getUpcomingEvents()
 
     return (
         <Container className="py-4">
@@ -38,7 +40,7 @@ export default async function EventList() {
                         <Card className="h-100">
                             <CardBody>
                                 <CardTitle>
-                                    <Link href={event.id}>{event.title}</Link>
+                                    <Link href={`/events/${event.id}`}>{event.title}</Link>
                                 </CardTitle>
                                 <CardSubtitle className="mb-2 text-muted">
                                     <Badge bg="primary" className="me-2">
@@ -59,6 +61,9 @@ export default async function EventList() {
             {events.length === 0 && (
                 <p className="text-center">No upcoming events found.</p>
             )}
+
+            <InstallPrompt />
+            <PushNotificationManager />
         </Container>
-    );
+    )
 };

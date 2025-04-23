@@ -1,12 +1,12 @@
 "use client"
 import { useState, ChangeEvent, FormEvent, useEffect } from 'react'
-import { db } from '@/lib/firebase/initFirebase'
-import { collection, addDoc, DocumentReference, DocumentData } from 'firebase/firestore'
+import { collection, addDoc, DocumentReference, DocumentData, getDoc, doc, setDoc, DocumentSnapshot, Timestamp } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
-import { Container, Form, Button } from 'react-bootstrap'
-import styles from "../page.module.css"
-import { getAuth } from "firebase/auth"
+import { Container, Form, Button, Row } from 'react-bootstrap'
 import { onIdTokenChanged } from "@/lib/firebase/auth"
+import { EventActivity } from "app/types"
+import { db } from "@/lib/firebase/initFirebase"
+import { getAuth } from "firebase/auth"
 
 type FormDataType = {
     title: string
@@ -42,12 +42,13 @@ export default function CreateEvent() {
         e.preventDefault()
 
         try {
-            const docRef: DocumentReference<DocumentData> = await addDoc(collection(db, 'events'), {
+            const newDoc = {
                 ...formData,
-                createdAt: new Date(),
-            })
-
-            router.push(`/${docRef.id}`)
+                createdAt: Timestamp.now(),
+                createdBy: getAuth().currentUser.uid
+            }
+            const docRef: DocumentReference<DocumentData> = await addDoc(collection(db, 'events'), newDoc)
+            router.push(`/events/${docRef.id}`)
         } catch (error) {
             console.error('Error adding event: ', error)
         }
@@ -67,7 +68,7 @@ export default function CreateEvent() {
             <h1 className="mb-4">Create New Event</h1>
 
             <Form onSubmit={handleSubmit}>
-                <Form.Group className="mb-3">
+                <Form.Group>
                     <Form.Label>Event Title</Form.Label>
                     <Form.Control
                         type="text"
@@ -78,36 +79,42 @@ export default function CreateEvent() {
                     />
                 </Form.Group>
 
-                <Form.Group className="mb-3">
-                    <Form.Label>Date</Form.Label>
-                    <Form.Control
-                        type="date"
-                        name="date"
-                        value={formData.date}
-                        onChange={handleChange}
-                        required
-                    />
+                <Row xs={1} sm={3}>
+                    <Form.Group className="col">
+                        <Form.Label>Date</Form.Label>
+                        <Form.Control
+                            type="date"
+                            name="date"
+                            value={formData.date}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Form.Group>
 
-                    <Form.Label>Start Time</Form.Label>
-                    <Form.Control
-                        type="time"
-                        name="startTime"
-                        value={formData.startTime}
-                        onChange={handleChange}
-                        required
-                    />
+                    <Form.Group className="col">
+                        <Form.Label>Start Time</Form.Label>
+                        <Form.Control
+                            type="time"
+                            name="startTime"
+                            value={formData.startTime}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Form.Group>
 
-                    <Form.Label>End Time</Form.Label>
-                    <Form.Control
-                        type="time"
-                        name="endTime"
-                        value={formData.endTime}
-                        onChange={handleChange}
-                        required
-                    />
-                </Form.Group>
+                    <Form.Group className="col">
+                        <Form.Label>End Time</Form.Label>
+                        <Form.Control
+                            type="time"
+                            name="endTime"
+                            value={formData.endTime}
+                            onChange={handleChange}
+                            required
+                        />
+                    </Form.Group>
+                </Row>
 
-                <Form.Group className="mb-3">
+                <Form.Group>
                     <Form.Label>Description</Form.Label>
                     <Form.Control
                         as="textarea"
@@ -118,7 +125,7 @@ export default function CreateEvent() {
                     />
                 </Form.Group>
 
-                <Form.Group className="mb-3">
+                <Form.Group>
                     <Form.Label>Route</Form.Label>
                     <Form.Control
                         name="routeLink"
@@ -132,6 +139,6 @@ export default function CreateEvent() {
                     Create Event
                 </Button>
             </Form>
-        </Container>
+        </Container >
     )
 }

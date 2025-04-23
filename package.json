@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "next dev --turbopack",
+		"dev": "next dev --turbopack --experimental-https",
 		"build": "next build",
 		"start": "next start"
 	},
@@ -16,7 +16,8 @@
 		"next": "15.3.0",
 		"react": "^19.1.0",
 		"react-bootstrap": "^2.10.9",
-		"react-dom": "^19.1.0"
+		"react-dom": "^19.1.0",
+		"web-push": "^3.6.7"
 	},
 	"devDependencies": {
 		"@eslint/eslintrc": "^3",
