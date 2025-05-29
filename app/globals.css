@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -39,4 +43,8 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+h1 { text-align: center;
+  @apply mb-16 text-5xl font-bold dark:text-gray-400 text-zinc-600 md:text-6xl;
 }

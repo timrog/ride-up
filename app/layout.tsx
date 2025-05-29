@@ -1,22 +1,18 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Poppins } from "next/font/google"
 import "./globals.css"
-import 'bootstrap/dist/css/bootstrap.min.css'
 import { getAuthenticatedAppForUser } from "@/lib/firebase/serverApp"
 import { initFirebase } from "@/lib/firebase/initFirebase"
-import { Nav, Navbar, NavbarBrand, NavbarCollapse, NavbarToggle, NavItem, NavLink } from "react-bootstrap"
-import StyledJsxRegistry from "./registry"
 import FirebaseAuth from "./firebaseAuth"
 import { User } from "firebase/auth"
+import { Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenuToggle } from "@heroui/navbar"
+import Link from "next/link"
+import { Providers } from "./providers"
 initFirebase()
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-})
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const sansFont = Poppins({
+  variable: "--font-sans",
+  weight: "400",
   subsets: ["latin"],
 })
 
@@ -34,27 +30,31 @@ export default async function RootLayout({
   const { currentUser } = await getAuthenticatedAppForUser()
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <StyledJsxRegistry>
-          <header>
-            <Navbar bg="primary">
+      <body className={sansFont.variable}>
+        <Providers>
+          <div className="relative flex flex-col h-screen">
+            <Navbar isBordered isBlurred className="bg-primary">
               <NavbarBrand>
-                <img src="https://vcgh.co.uk/wp-content/uploads/2024/06/Banner-trans.svg" alt="Logo" height="40" />
+                <img src="https://vcgh.co.uk/wp-content/uploads/2024/06/Banner-trans.svg" alt="Logo" width="150" />
               </NavbarBrand>
-              <NavItem>
-                <NavLink href="/">Events</NavLink>
-              </NavItem>
-              <NavItem>
-                <NavLink href="/create">Post a ride</NavLink>
-              </NavItem>
-              <FirebaseAuth initialUser={currentUser.toJSON() as User} />
-              <NavbarToggle aria-controls="basic-navbar-nav" />
+              <NavbarContent className="hidden sm:flex gap-4" justify="center">
+                <NavbarItem>
+                  <Link href="/">Events</Link>
+                </NavbarItem>
+                <NavbarItem>
+                  <Link href="/create">Post a ride</Link>
+                </NavbarItem>
+              </NavbarContent>
+              <NavbarContent justify="end">
+                <FirebaseAuth initialUser={currentUser?.toJSON() as User} />
+                <NavbarMenuToggle aria-controls="basic-navbar-nav" />
+              </NavbarContent>
             </Navbar>
-          </header>
-          <main>
-            {children}
-          </main>
-        </StyledJsxRegistry>
+            <main className="flex-1 container mx-auto px-4 py-8">
+              {children}
+            </main>
+          </div>
+        </Providers>
       </body>
     </html>
   )

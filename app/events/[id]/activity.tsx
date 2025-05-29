@@ -4,9 +4,10 @@ import { db } from '@/lib/firebase/initFirebase'
 import { arrayUnion, doc, onSnapshot, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import React, { FormEvent, useEffect, useState } from 'react'
-import { Card } from 'react-bootstrap'
 import { Comment, EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
+import { Calendar, Card, CardBody, CardHeader } from "@heroui/react"
+import { getLocalTimeZone, today, fromDate } from "@internationalized/date"
 
 export default function Comments({ id }: { id: string }) {
     const newActivity = { signups: {}, comments: [] }
@@ -54,12 +55,9 @@ export default function Comments({ id }: { id: string }) {
         <h2>Comments</h2>
         <div className="mt-3">
             {activity.comments?.map(c => (
-                <Card bg={c.userId === currentUser?.uid ? 'info' : 'light'}
-                    border="0" className={`mb-3 ${c.userId === currentUser?.uid ? 'ms-5' : 'me-5'}`} key={c.createdAt.toString()}>
-                    <Card.Body>
-                        <Card.Title>{c.name}</Card.Title>
-                        <Card.Text>{c.text}</Card.Text>
-                    </Card.Body >
+                <Card className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-color-white' : 'bg-color-lime'}`} key={c.createdAt.toString()}>
+                    <CardHeader>{c.name}</CardHeader>
+                    <CardBody>{c.text}</CardBody >
                 </Card >
             ))
             }
