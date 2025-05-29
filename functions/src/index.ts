@@ -1,10 +1,14 @@
 import * as logger from "firebase-functions/logger"
-import { onMessagePublished } from "firebase-functions/v2/pubsub"
+import { MessagePublishedData, onMessagePublished } from "firebase-functions/v2/pubsub"
 import { onSchedule } from "firebase-functions/v2/scheduler"
 import { MemberEntry, retrieveMembers } from "./retriever"
 import admin from "firebase-admin"
 import { parse } from "csv-parse/sync"
 import { defineSecret } from "firebase-functions/params"
+import { CloudEvent } from "firebase-functions/core"
+
+export * from './mailerlite'
+
 admin.initializeApp()
 
 const mm_email = defineSecret('MM_USERNAME')
@@ -53,12 +57,16 @@ export const SendMembersToFirestore = onMessagePublished({
     logger.info(`Converted ${records.length} records`)
 })
 
+export function decodeMembersCsv(event: CloudEvent<MessagePublishedData<any>>) {
+    const csvString = Buffer.from(event.data.message.data, "base64").toString()
+    return (parse(csvString, { delimiter: ",", columns: true }) as MemberEntry[])
+        .filter(x => x.Email)
+}
+
 export const SendMembersToAuth = onMessagePublished({
     topic: "all-members", region
 }, async (event) => {
-    const csvString = Buffer.from(event.data.message.data, "base64").toString()
-    const records = (parse(csvString, { delimiter: ",", columns: true }) as MemberEntry[])
-        .filter(x => x.Email)
+    const records = decodeMembersCsv(event)
     const auth = admin.auth()
 
     const existingUsers = new Map<string, admin.auth.UserRecord>()
