@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { CalendarEvent } from './types'
 import { InstallPrompt } from "./installPrompt"
 import { PushNotificationManager } from "./pushNotifications"
-import { Card, CardBody, CardHeader } from "@heroui/card"
+import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
+import { toFormattedDate } from "./format"
 
 async function getUpcomingEvents(): Promise<CalendarEvent[]> {
     const eventsRef = collection(db, 'events')
@@ -39,21 +40,18 @@ export default async function EventList() {
                     <div key={event.id}>
                         <Card>
                             <CardHeader>
-                                <h5 className="text-lg font-medium">
-                                    <Link href={`/events/${event.id}`}>{event.title}</Link>
-                                </h5>
-                                <div className="mb-2 text-gray-600">
-                                    <span className="inline-block bg-blue-500 text-white rounded-full px-3 py-1 text-sm mr-2">
-                                        {event.date.toString()}
-                                    </span>
-                                    <span className="inline-block bg-gray-500 text-white rounded-full px-3 py-1 text-sm">
-                                        {event.location}
-                                    </span>
-                                </div>
+                                <Link href={`/events/${event.id}`} className="text-lg font-bold">{event.title}</Link>
+                                <span className="mx-2 inline-block bg-primary text-white rounded-full px-3 py-1">
+                                    {toFormattedDate(event.date)}
+                                </span>
+
                             </CardHeader>
                             <CardBody>
                                 {event.description}
                             </CardBody>
+                            <CardFooter>
+                                {event.location}
+                            </CardFooter>
                         </Card>
                     </div>
                 ))}

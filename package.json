@@ -8,6 +8,7 @@
 		"start": "next start"
 	},
 	"dependencies": {
+		"@heroicons/react": "^2.2.0",
 		"@heroui/react": "^2.7.6",
 		"@tailwindcss/postcss": "^4.1.4",
 		"cookies-next": "^5.1.0",

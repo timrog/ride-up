@@ -35,9 +35,9 @@ export default function SignupButton({ id, active }: { id: string, active: boole
     }
 
     return isActive ? (
-        <Button onPress={clearSignup}>Cancel my sign-up</Button>
+        <Button onPress={clearSignup} color="warning">Cancel my sign-up</Button>
     ) : (
-        <Button onPress={addSignup}>Sign me up</Button>
+        <Button onPress={addSignup} color="primary">Sign me up</Button>
     )
 }
 

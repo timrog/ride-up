@@ -3,12 +3,12 @@ import { Timestamp } from "@firebase/firestore"
 export interface CalendarEvent {
     id: string
     title: string
-    date: Timestamp
-    startTime: number
-    endTime: number
+    date: Timestamp // now includes both date and start time
+    duration: number // duration in minutes
     location: string
     description: string
     routeLink: string
+    createdAt: Timestamp
     createdBy: string
 }
 

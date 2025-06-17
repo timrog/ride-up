@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Poppins } from "next/font/google"
+import { Nunito, Big_Shoulders_Display } from "next/font/google"
 import "./globals.css"
 import { getAuthenticatedAppForUser } from "@/lib/firebase/serverApp"
 import { initFirebase } from "@/lib/firebase/initFirebase"
@@ -10,10 +10,16 @@ import Link from "next/link"
 import { Providers } from "./providers"
 initFirebase()
 
-const sansFont = Poppins({
+const sansFont = Nunito({
   variable: "--font-sans",
-  weight: "400",
+  weight: "variable",
   subsets: ["latin"],
+})
+
+const headingFont = Big_Shoulders_Display({
+  variable: "--font-heading",
+  weight: "800",
+  subsets: ["latin"]
 })
 
 export const metadata: Metadata = {
@@ -30,14 +36,14 @@ export default async function RootLayout({
   const { currentUser } = await getAuthenticatedAppForUser()
   return (
     <html lang="en">
-      <body className={sansFont.variable}>
+      <body className={`${sansFont.variable} ${headingFont.variable}`}>
         <Providers>
           <div className="relative flex flex-col h-screen">
-            <Navbar isBordered isBlurred className="bg-primary">
+            <Navbar isBordered isBlurred className="bg-background/100 dark:bg-background/10 text-white backdrop-blur-lg">
               <NavbarBrand>
-                <img src="https://vcgh.co.uk/wp-content/uploads/2024/06/Banner-trans.svg" alt="Logo" width="150" />
+                <img src="https://vcgh.co.uk/wp-content/uploads/2025/04/VCGH-white.svg" alt="Logo" width="150" />
               </NavbarBrand>
-              <NavbarContent className="hidden sm:flex gap-4" justify="center">
+              <NavbarContent className="hidden sm:flex gap-4 font-black" justify="center">
                 <NavbarItem>
                   <Link href="/">Events</Link>
                 </NavbarItem>
