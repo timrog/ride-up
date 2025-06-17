@@ -6,8 +6,8 @@ import {
     signOut,
     onIdTokenChanged,
 } from "@/lib/firebase/auth"
-import { NavDropdown } from "react-bootstrap"
 import { User } from "firebase/auth"
+import { Avatar, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react"
 
 function useUserSession(initialUser: User) {
     useEffect(() => {
@@ -29,20 +29,6 @@ function useUserSession(initialUser: User) {
     return initialUser
 }
 
-const ProfileImage = (props) => (
-    <span>
-        <img {...props} />
-        <style jsx>{`
-            img {
-                object-fit: cover;
-                width: 2.5rem;
-                height: 2.5rem;
-                border-radius: 50%;
-            }
-        `}</style>
-    </span>
-)
-
 export default function FirebaseAuth({ initialUser }: { initialUser: User }) {
     const user = useUserSession(initialUser)
     const handleSignOut = (event) => {
@@ -56,31 +42,22 @@ export default function FirebaseAuth({ initialUser }: { initialUser: User }) {
     }
 
     return (
-        <NavDropdown
-            className="flex-grow-1"
-            title={
-                <ProfileImage
-                    className="profileImage"
-                    src={user ? user.photoURL || "/profile.svg" : "/profile.svg"}
-                    alt={user ? user.email : "A placeholder user image"}
+        <Dropdown placement="bottom-end">
+            <DropdownTrigger>
+                <Avatar
+                    isBordered
+                    as="button"
+                    className="transition-transform"
+                    color="secondary"
+                    name={user?.displayName}
+                    size="sm"
+                    src={user?.photoURL}
                 />
-            }
-        >
-            {user ? (
-                <>
-                    <NavDropdown.Item disabled>
-                        {user.displayName}
-                    </NavDropdown.Item>
-                    <NavDropdown.Divider />
-                    <NavDropdown.Item onClick={handleSignOut}>
-                        Sign Out
-                    </NavDropdown.Item>
-                </>
-            ) : (
-                <NavDropdown.Item onClick={handleSignIn}>
-                    Sign In with Google
-                </NavDropdown.Item>
-            )}
-        </NavDropdown>)
+            </DropdownTrigger>
+            <DropdownMenu aria-label="Profile Actions" variant="flat">
+                {!user && <DropdownItem key="login" onPress={handleSignIn}>Sign in</DropdownItem>}
+                {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
+            </DropdownMenu>
+        </Dropdown>)
 
 }

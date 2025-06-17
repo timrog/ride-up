@@ -4,7 +4,7 @@ import { db } from '@/lib/firebase/initFirebase'
 import { deleteField, doc, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import React, { useState } from 'react'
-import { Button } from 'react-bootstrap'
+import { Button } from "@heroui/react"
 
 export default function SignupButton({ id, active }: { id: string, active: boolean }) {
     const [isActive, setActive] = useState(active)
@@ -35,9 +35,9 @@ export default function SignupButton({ id, active }: { id: string, active: boole
     }
 
     return isActive ? (
-        <Button variant="danger" onClick={clearSignup}>Cancel my sign-up</Button>
+        <Button onPress={clearSignup} color="warning">Cancel my sign-up</Button>
     ) : (
-        <Button variant="primary" onClick={addSignup}>Sign me up</Button>
+        <Button onPress={addSignup} color="primary">Sign me up</Button>
     )
 }
 

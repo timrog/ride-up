@@ -2,11 +2,12 @@
 import { collection, query, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import React from 'react'
-import { Card, Container, Row, Col, Badge, CardBody, CardTitle, CardText, CardSubtitle } from 'react-bootstrap'
 import Link from 'next/link'
 import { CalendarEvent } from './types'
 import { InstallPrompt } from "./installPrompt"
 import { PushNotificationManager } from "./pushNotifications"
+import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
+import { toFormattedDate } from "./format"
 
 async function getUpcomingEvents(): Promise<CalendarEvent[]> {
     const eventsRef = collection(db, 'events')
@@ -32,38 +33,34 @@ export default async function EventList() {
     const events = await getUpcomingEvents()
 
     return (
-        <Container className="py-4">
-            <h2 className="mb-4">Upcoming Events</h2>
-            <Row xs={1} md={2} lg={3} className="g-4">
+        <div className="py-4">
+            <h1>Upcoming Events</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {events.map((event) => (
-                    <Col key={event.id}>
-                        <Card className="h-100">
+                    <div key={event.id}>
+                        <Card>
+                            <CardHeader>
+                                <Link href={`/events/${event.id}`} className="text-lg font-bold">{event.title}</Link>
+                                <span className="mx-2 inline-block bg-primary text-white rounded-full px-3 py-1">
+                                    {toFormattedDate(event.date)}
+                                </span>
+
+                            </CardHeader>
                             <CardBody>
-                                <CardTitle>
-                                    <Link href={`/events/${event.id}`}>{event.title}</Link>
-                                </CardTitle>
-                                <CardSubtitle className="mb-2 text-muted">
-                                    <Badge bg="primary" className="me-2">
-                                        {event.date.toString()}
-                                    </Badge>
-                                    <Badge bg="secondary">
-                                        {event.location}
-                                    </Badge>
-                                </CardSubtitle>
-                                <CardText>
-                                    {event.description}
-                                </CardText>
+                                {event.description}
                             </CardBody>
+                            <CardFooter>
+                                {event.location}
+                            </CardFooter>
                         </Card>
-                    </Col>
+                    </div>
                 ))}
-            </Row>
-            {events.length === 0 && (
+            </div>            {events.length === 0 && (
                 <p className="text-center">No upcoming events found.</p>
             )}
 
             <InstallPrompt />
             <PushNotificationManager />
-        </Container>
+        </div>
     )
 };
