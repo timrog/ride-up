@@ -13,6 +13,7 @@ import { CalendarEvent } from "app/types"
 export default function CreateEvent() {
     const router = useRouter()
     const handleSubmit = async (e: Partial<CalendarEvent>): Promise<void> => {
+        debugger
         try {
             const docRef: DocumentReference<DocumentData> = await addDoc(collection(db, 'events'), e)
             router.push(`/events/${docRef.id}`)

@@ -9,9 +9,10 @@ import { Button } from "@heroui/react"
 export default function SignupButton({ id, active }: { id: string, active: boolean }) {
     const [isActive, setActive] = useState(active)
     const activityDoc = doc(db, 'events', id, 'activity', 'private')
+    const user = getAuth().currentUser
+    if (!user) return null
 
     const addSignup = async () => {
-        const user = getAuth().currentUser
         await setDoc(activityDoc,
             {
                 signups: {
@@ -26,8 +27,6 @@ export default function SignupButton({ id, active }: { id: string, active: boole
     }
 
     const clearSignup = async () => {
-        const user = getAuth().currentUser
-
         await updateDoc(activityDoc, {
             [`signups.${user.uid}`]: deleteField()
         })

@@ -1,14 +1,16 @@
 'use client'
 
 import { db } from '@/lib/firebase/initFirebase'
-import { arrayUnion, doc, onSnapshot, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
-import { getAuth } from "firebase/auth"
+import { arrayUnion, doc, getDoc, onSnapshot, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
+import { getAuth, User } from "firebase/auth"
 import React, { FormEvent, KeyboardEvent, useEffect, useState } from 'react'
 import { Comment, EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
-import { Button, Calendar, Card, CardBody, CardFooter, CardHeader, Input, Textarea } from "@heroui/react"
+import { Button, Calendar, Card, CardBody, CardFooter, CardHeader, Input, Textarea, useUser } from "@heroui/react"
 import { getLocalTimeZone, today, fromDate } from "@internationalized/date"
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline'
+import { useRoles } from "app/clientAuth"
+import { json } from "stream/consumers"
 
 export default function Comments({ id }: { id: string }) {
     const newActivity = { signups: {}, comments: [] }
@@ -19,34 +21,68 @@ export default function Comments({ id }: { id: string }) {
     const currentUser = getAuth().currentUser
 
     async function submitComment(e: FormEvent) {
+        if (!currentUser) return console.error("No user signed in")
         e.preventDefault()
         if (commentBusy) return
         setCommentBusy(true)
         const commentRecord: Comment = {
             createdAt: Timestamp.now(),
-            name: currentUser.displayName,
+            name: currentUser.displayName || "Anonymous",
             userId: currentUser.uid,
             text: comment
         }
+
         if (activity == newActivity)
             await setDoc(activityDoc, { ...newActivity, comments: [commentRecord] })
         else
             await updateDoc(activityDoc, { comments: arrayUnion(commentRecord) })
+
         setComment('')
         setCommentBusy(false)
     }
 
+    const { roles } = useRoles()
     useEffect(() => {
-        return onSnapshot(activityDoc,
-            (snapshot) => {
-                if (snapshot.data())
-                    setActivity(snapshot.data() as EventActivity)
+        let snapshotUnsubscribe: (() => void) | null = null
+
+        const authUnsubscribe = getAuth().onIdTokenChanged(async (user) => {
+            if (user) {
+                try {
+                    // Wait for the token to be ready and force refresh if needed
+                    await user.getIdToken(true)
+
+                    // Now make the Firestore call
+                    snapshotUnsubscribe = onSnapshot(activityDoc,
+                        (snapshot) => {
+                            if (snapshot.data()) {
+                                setActivity(snapshot.data() as EventActivity)
+                            }
+                        },
+                        (error) => {
+                            console.error('Firestore snapshot error:', error)
+                        }
+                    )
+                } catch (error) {
+                    console.error('Token refresh failed:', error)
+                }
+            } else {
+                // Clean up subscription when user logs out
+                if (snapshotUnsubscribe) {
+                    snapshotUnsubscribe()
+                }
             }
-        )
+        })
+
+        return () => {
+            authUnsubscribe()
+            snapshotUnsubscribe?.()
+        }
     }, [id])
 
     const signupCount = Object.keys(activity.signups).length
-    const activeSignup = activity.signups[getAuth().currentUser?.uid]
+
+    const userId = getAuth().currentUser?.uid
+    const activeSignup = userId ? activity.signups[userId] : undefined
 
     return <>
         <h2>{signupCount} {signupCount == 1 ? 'sign-up' : 'sign-ups'}</h2>
@@ -55,7 +91,7 @@ export default function Comments({ id }: { id: string }) {
         </ul>
 
         <div className="my-3">
-            {currentUser ?
+            {roles.includes("member") ?
                 <SignupButton id={id} active={!!activeSignup} /> :
                 <div className="alert alert-warning">Please sign in to sign up for this event.</div>
             }

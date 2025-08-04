@@ -2,7 +2,6 @@
 import { useEffect } from 'react'
 import { setCookie, deleteCookie } from "cookies-next"
 import {
-    signInWithGoogle,
     signOut,
     onIdTokenChanged,
 } from "@/lib/firebase/auth"
@@ -12,7 +11,6 @@ import { Avatar, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@
 function useUserSession(initialUser: User) {
     useEffect(() => {
         return onIdTokenChanged(async (user) => {
-            console.log("id token changed")
             if (user) {
                 const idToken = await user.getIdToken()
                 await setCookie("__session", idToken)
@@ -31,15 +29,7 @@ function useUserSession(initialUser: User) {
 
 export default function FirebaseAuth({ initialUser }: { initialUser: User }) {
     const user = useUserSession(initialUser)
-    const handleSignOut = (event) => {
-        event.preventDefault()
-        signOut()
-    }
-
-    const handleSignIn = (event) => {
-        event.preventDefault()
-        signInWithGoogle()
-    }
+    const handleSignOut = () => signOut()
 
     return (
         <Dropdown placement="bottom-end">
@@ -49,13 +39,13 @@ export default function FirebaseAuth({ initialUser }: { initialUser: User }) {
                     as="button"
                     className="transition-transform"
                     color="secondary"
-                    name={user?.displayName}
+                    name={user?.displayName || "User"}
                     size="sm"
-                    src={user?.photoURL}
+                    src={user?.photoURL || undefined}
                 />
             </DropdownTrigger>
             <DropdownMenu aria-label="Profile Actions" variant="flat">
-                {!user && <DropdownItem key="login" onPress={handleSignIn}>Sign in</DropdownItem>}
+                {!user && <DropdownItem key="login" href="/user">Sign in</DropdownItem> || null}
                 {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
             </DropdownMenu>
         </Dropdown>)

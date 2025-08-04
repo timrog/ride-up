@@ -7,3 +7,10 @@ export function toFormattedDate(date: Timestamp): string {
         month: 'short'
     })
 }
+export function toFormattedTime(date: Timestamp): string {
+    return date.toDate().toLocaleTimeString('en-GB', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    })
+}

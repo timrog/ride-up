@@ -1,15 +1,18 @@
 import { Timestamp } from "@firebase/firestore"
 
+export type MemberRole = "guest" | "leader" | "member" | "admin"
+
 export interface CalendarEvent {
     id: string
     title: string
-    date: Timestamp // now includes both date and start time
-    duration: number // duration in minutes
+    date: Timestamp
+    duration: number
     location: string
     description: string
     routeLink: string
     createdAt: Timestamp
     createdBy: string
+    isCancelled: boolean
 }
 
 export interface EventActivity {

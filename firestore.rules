@@ -1,27 +1,54 @@
 rules_version = '2';
 service cloud.firestore {
 
-  // Determine if the value of the field "key" is the same
-  // before and after the request.
-  function unchanged(key) {
-    return (key in resource.data) 
-      && (key in request.resource.data) 
-      && (resource.data[key] == request.resource.data[key]);
+  function hasRole(role) {
+    return request.auth != null
+      && request.auth.token.roles.hasAny([role]);
   }
 
   match /databases/{database}/documents {
     match /events/{eventId} {
       allow read;
       allow create: if request.auth != null 
-        && request.auth.token.role == "leader"
         && request.resource.data.createdBy == request.auth.uid
       allow update: if request.auth != null
         && (request.auth.uid == resource.data.createdBy
         || request.auth.token.role == "admin")
-    }
-    match /{document=**} {
-      allow read;
-      allow write: if request.auth != null
+
+      match /activity/private {
+        allow read: if hasRole("member");
+        allow create, update: if hasRole("member");
+        // allow create: if request.auth != null 
+        //   && request.auth.token.role == "member";
+        // allow update: if request.auth != null
+        //   && request.auth.token.role == "member"
+        //   && request.resource.data.keys().hasOnly(['signups', 'comments'])
+        //   && (
+        // // Allow updates to signups where only the current user's entry is modified
+        // !('signups' in request.resource.data) || 
+        // (
+        // 'signups' in resource.data 
+        // ? request.resource.data.signups.diff(resource.data.signups).affectedKeys().hasOnly([request.auth.uid])
+        // : request.resource.data.signups.keys().hasOnly([request.auth.uid])
+        // )
+        // );
+        //   && (
+        // // Allow updates to comments where only the current user's comments are modified
+        // !('comments' in request.resource.data) ||
+        // (
+        // ('comments' in resource.data)
+        // ? (
+        // // Compare old and new comment arrays to find changes
+        // // First ensure we're not deleting someone else's comments
+        // (request.resource.data.comments.size() >= resource.data.comments.size() || 
+        // resource.data.comments.removeAll(request.resource.data.comments).every(c => c.userId == request.auth.uid)
+        // ) &&
+        // // Then ensure any new or modified comments belong to current user
+        // request.resource.data.comments.removeAll(resource.data.comments).every(c => c.userId == request.auth.uid)
+        // ) : request.resource.data.comments.size() == 0 || request.resource.data.comments.every(c => c.userId == request.auth.uid)
+        // )
+        // );
+      }
     }
   }
 }

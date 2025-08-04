@@ -7,11 +7,11 @@ import { CalendarEvent } from './types'
 import { InstallPrompt } from "./installPrompt"
 import { PushNotificationManager } from "./pushNotifications"
 import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
-import { toFormattedDate } from "./format"
+import { toFormattedDate, toFormattedTime } from "./format"
+import { CalendarIcon, MapPinIcon } from "@heroicons/react/24/outline"
 
 async function getUpcomingEvents(): Promise<CalendarEvent[]> {
     const eventsRef = collection(db, 'events')
-    const now = Timestamp.now()
 
     // Query for events with date greater than current time
     const q = query(eventsRef)
@@ -40,11 +40,17 @@ export default async function EventList() {
                     <div key={event.id}>
                         <Card>
                             <CardHeader>
-                                <Link href={`/events/${event.id}`} className="text-lg font-bold">{event.title}</Link>
-                                <span className="mx-2 inline-block bg-primary text-white rounded-full px-3 py-1">
-                                    {toFormattedDate(event.date)}
-                                </span>
-
+                                <div>
+                                    <div>
+                                        <CalendarIcon height={18} /> {toFormattedDate(event.date)} {toFormattedTime(event.date)}
+                                    </div>
+                                    <div>
+                                        <Link href={`/events/${event.id}`} className="text-lg font-bold">{event.title}</Link>
+                                    </div>
+                                    <div>
+                                        <MapPinIcon height={18} /> {event.location}
+                                    </div>
+                                </div>
                             </CardHeader>
                             <CardBody>
                                 {event.description}

@@ -1,13 +1,11 @@
-import { Button, Input, Textarea } from "@heroui/react"
+import { Button, Input, Select, SelectItem, Textarea } from "@heroui/react"
 import { CalendarEvent } from "app/types"
 import { getAuth } from "firebase/auth"
 import { Timestamp } from "firebase/firestore"
 import React, { ChangeEvent, useState } from "react"
 
-
 type FormDataType = {
     date: string
-    startTime: string
     duration: string
     title: string
     description: string
@@ -18,14 +16,12 @@ type FormDataType = {
 export default function EventForm({ event, onSubmit }
     : { event?: CalendarEvent, onSubmit: (event: Partial<CalendarEvent>) => void }) {
 
-    const [date, startTime] =
-        event?.date ? event?.date.toDate().toISOString().split('T') : []
+    const date = event?.date.toDate().toISOString() || ''
 
     const [formData, setFormData] = useState<FormDataType>({
         title: event?.title || '',
         date,
-        startTime,
-        duration: event?.duration?.toString() || '',
+        duration: event?.duration?.toString() || '180',
         description: event?.description || '',
         routeLink: event?.routeLink || '',
         location: event?.location || ''
@@ -89,16 +85,19 @@ export default function EventForm({ event, onSubmit }
                     isRequired
                 />
 
-                <Input
-                    label="End time"
-                    type="time"
+                <Select
                     name="duration"
-                    value={formData.duration}
-                    onChange={handleChange}
-                    onFocus={(e) => e.target.showPicker()}
-                    step="900"
-                    isRequired
-                />
+                    label="Duration"
+                    defaultSelectedKeys={[formData.duration]}
+                    onChange={e => setFormData(prevState => ({ ...prevState, duration: e.target.value }))}
+                    required
+                >
+                    {Array.from({ length: 16 }, (_, i) => (i + 1) * 30).map(minutes => (
+                        <SelectItem key={minutes}>
+                            {`${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}`.trim()}
+                        </SelectItem>
+                    ))}
+                </Select>
             </div>
 
             <Textarea
@@ -126,6 +125,6 @@ export default function EventForm({ event, onSubmit }
             >
                 {event ? 'Save' : 'Create Event'}
             </Button>
-        </form>
+        </form >
     )
 }

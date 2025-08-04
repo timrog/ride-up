@@ -5,7 +5,9 @@
 	"scripts": {
 		"dev": "next dev --turbopack --experimental-https",
 		"build": "next build",
-		"start": "next start"
+		"start": "next start",
+		"emulator": "firebase emulators:start",
+		"dev:emulator": "concurrently \"npm run emulator\" \"npm run dev\""
 	},
 	"dependencies": {
 		"@heroicons/react": "^2.2.0",

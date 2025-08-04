@@ -2,7 +2,7 @@
 
 import { initializeApp } from "firebase/app"
 import { getAuth } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
 import { clientCredentials } from "./initFirebase"
 
@@ -13,3 +13,8 @@ export const firebaseApp = initializeApp(clientCredentials)
 export const auth = getAuth(firebaseApp)
 export const db = getFirestore(firebaseApp)
 export const storage = getStorage(firebaseApp)
+// Connect to emulators in development mode
+if (process.env.NODE_ENV === 'development') {
+    console.log('Using Firebase emulators')
+    connectFirestoreEmulator(db, 'localhost', 8080)
+}
