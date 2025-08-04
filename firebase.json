@@ -19,14 +19,6 @@
       ]
     }
   ],
-  "hosting": {
-    "public": ".next",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ]
-  },
   "emulators": {
     "firestore": {
       "port": 8080
