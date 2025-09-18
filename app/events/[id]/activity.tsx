@@ -1,16 +1,14 @@
 'use client'
 
 import { db } from '@/lib/firebase/initFirebase'
-import { arrayUnion, doc, getDoc, onSnapshot, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
-import { getAuth, User } from "firebase/auth"
-import React, { FormEvent, KeyboardEvent, useEffect, useState } from 'react'
+import { arrayUnion, doc, onSnapshot, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
+import { getAuth } from "firebase/auth"
+import React, { KeyboardEvent, useEffect, useState } from 'react'
 import { Comment, EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
-import { Button, Calendar, Card, CardBody, CardFooter, CardHeader, Input, Textarea, useUser } from "@heroui/react"
-import { getLocalTimeZone, today, fromDate } from "@internationalized/date"
+import { Button, Card, CardBody, CardHeader, Textarea } from "@heroui/react"
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline'
 import { useRoles } from "app/clientAuth"
-import { json } from "stream/consumers"
 
 export default function Comments({ id }: { id: string }) {
     const newActivity = { signups: {}, comments: [] }
@@ -20,7 +18,7 @@ export default function Comments({ id }: { id: string }) {
     const activityDoc = doc(db, 'events', id, 'activity', 'private')
     const currentUser = getAuth().currentUser
 
-    async function submitComment(e: FormEvent) {
+    async function submitComment(e: Event) {
         if (!currentUser) return console.error("No user signed in")
         e.preventDefault()
         if (commentBusy) return
@@ -48,10 +46,8 @@ export default function Comments({ id }: { id: string }) {
         const authUnsubscribe = getAuth().onIdTokenChanged(async (user) => {
             if (user) {
                 try {
-                    // Wait for the token to be ready and force refresh if needed
                     await user.getIdToken(true)
 
-                    // Now make the Firestore call
                     snapshotUnsubscribe = onSnapshot(activityDoc,
                         (snapshot) => {
                             if (snapshot.data()) {
@@ -66,7 +62,6 @@ export default function Comments({ id }: { id: string }) {
                     console.error('Token refresh failed:', error)
                 }
             } else {
-                // Clean up subscription when user logs out
                 if (snapshotUnsubscribe) {
                     snapshotUnsubscribe()
                 }
@@ -82,17 +77,41 @@ export default function Comments({ id }: { id: string }) {
     const signupCount = Object.keys(activity.signups).length
 
     const userId = getAuth().currentUser?.uid
-    const activeSignup = userId ? activity.signups[userId] : undefined
+    const hasActiveSignup = !!(userId && activity.signups[userId])
+
+    function formatRelative(date: Date): string {
+        const now = new Date()
+        const isToday = date > new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+        if (isToday) {
+            return date.toLocaleTimeString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            })
+        }
+
+        const diffMs = now.getTime() - date.getTime()
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+        if (diffDays === 1) return 'yesterday'
+        if (diffDays < 7) return `${diffDays} days ago`
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
+        return date.toLocaleDateString()
+    }
 
     return <>
         <h2>{signupCount} {signupCount == 1 ? 'sign-up' : 'sign-ups'}</h2>
-        <ul className="text-lg">
-            {Object.entries(activity.signups).map(([userId, signup]) => <li key={userId}>{signup.name}</li>)}
-        </ul>
+
+        {roles.includes("member") &&
+            <ul className="text-lg">
+                {Object.entries(activity.signups).map(([userId, signup]) => <li key={userId}>{signup.name}</li>)}
+            </ul>}
 
         <div className="my-3">
+
             {roles.includes("member") ?
-                <SignupButton id={id} active={!!activeSignup} /> :
+                <SignupButton id={id} active={hasActiveSignup} /> :
                 <div className="alert alert-warning">Please sign in to sign up for this event.</div>
             }
         </div>
@@ -101,14 +120,8 @@ export default function Comments({ id }: { id: string }) {
         <div>
             {activity.comments?.map(c => (
                 <Card className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
+                    <CardHeader className="text-sm">{c.name} &middot; {formatRelative(c.createdAt.toDate())}</CardHeader>
                     <CardBody className="whitespace-pre-line">{c.text}</CardBody >
-                    <CardFooter className="text-sm">{c.name} &middot; {c.createdAt.toDate().toLocaleString(undefined, {
-                        month: 'long',
-                        day: 'numeric',
-                        weekday: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                    })}</CardFooter>
                 </Card >
             ))
             }
@@ -124,7 +137,7 @@ export default function Comments({ id }: { id: string }) {
                 onChange={(e) => setComment(e.target.value)}
                 onKeyDown={(e: KeyboardEvent) => e.key === 'Enter' && !e.shiftKey && submitComment(e)}
             />
-            <Button isIconOnly radius="lg" className="p-2" color="primary" onPress={() => submitComment}><PaperAirplaneIcon /></Button>
+            <Button isIconOnly radius="lg" className="p-2" color="primary" onPress={e => submitComment(e)}><PaperAirplaneIcon /></Button>
         </div>
     </>
 }

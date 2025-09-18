@@ -2,13 +2,15 @@
 import React, { useEffect, useState } from 'react'
 import { Alert, Button, Card, Input } from "@heroui/react"
 import { signInWithGoogle } from "@/lib/firebase/auth"
-import { getAuth, isSignInWithEmailLink, sendSignInLinkToEmail, signInWithEmailLink } from "firebase/auth"
-import router from "next/router"
+import { getAuth, isSignInWithEmailLink, sendSignInLinkToEmail, signInWithEmailAndPassword, signInWithEmailLink } from "firebase/auth"
+import { useRouter } from "next/navigation"
 
 const SignInPage = () => {
     const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
     const [awaitingEmail, setAwaitingEmail] = useState(false)
     const auth = getAuth()
+    const router = useRouter()
 
     useEffect(() => {
         if (isSignInWithEmailLink(auth, window.location.href)) {
@@ -26,6 +28,16 @@ const SignInPage = () => {
 
     const handleEmailSignIn = async (event: React.FormEvent) => {
         event.preventDefault()
+
+        if (process.env.NODE_ENV === 'development' && password) {
+            signInWithEmailAndPassword(auth, email, password)
+                .then(() => router.push('/'))
+                .catch((error) => {
+                    console.error('Error signing in with email and password:', error)
+                    alert('Failed to sign in. Please try again.')
+                })
+            return
+        }
 
         const actionCodeSettings = {
             url: "https://localhost:3000/user",
@@ -75,6 +87,14 @@ const SignInPage = () => {
                         onChange={(e) => setEmail(e.target.value)}
                         required
                     />
+                    {process.env.NODE_ENV === 'development' && (
+                        <Input
+                            type="password"
+                            name="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />)}
                     <Button type="submit">
                         Sign in with email
                     </Button>

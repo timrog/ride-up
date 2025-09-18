@@ -7,3 +7,4 @@ export async function getUser() {
     const idToken = await currentUser?.getIdTokenResult()
     return { roles: (idToken?.claims['roles'] || []) as MemberRole[], currentUser, idToken }
 }
+

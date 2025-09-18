@@ -28,5 +28,9 @@ export function useRoles() {
         }
     }, [])
 
-    return { roles: (idToken?.claims['roles'] || []) as MemberRole[], currentUser, idToken }
+    return {
+        roles: (idToken?.claims['roles'] || []) as MemberRole[],
+        currentUser,
+        idToken,
+    }
 }

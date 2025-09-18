@@ -7,7 +7,6 @@ import React, { useState } from 'react'
 import { Button } from "@heroui/react"
 
 export default function SignupButton({ id, active }: { id: string, active: boolean }) {
-    const [isActive, setActive] = useState(active)
     const activityDoc = doc(db, 'events', id, 'activity', 'private')
     const user = getAuth().currentUser
     if (!user) return null
@@ -23,17 +22,15 @@ export default function SignupButton({ id, active }: { id: string, active: boole
                 }
             }, { merge: true }
         )
-        setActive(true)
     }
 
     const clearSignup = async () => {
         await updateDoc(activityDoc, {
             [`signups.${user.uid}`]: deleteField()
         })
-        setActive(false)
     }
 
-    return isActive ? (
+    return active ? (
         <Button onPress={clearSignup} color="warning">Cancel my sign-up</Button>
     ) : (
         <Button onPress={addSignup} color="primary">Sign me up</Button>

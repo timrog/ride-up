@@ -1,7 +1,7 @@
 "use client"
 
 import { initializeApp } from "firebase/app"
-import { getAuth } from "firebase/auth"
+import { getAuth, connectAuthEmulator } from "firebase/auth"
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
 import { clientCredentials } from "./initFirebase"
@@ -16,5 +16,15 @@ export const storage = getStorage(firebaseApp)
 // Connect to emulators in development mode
 if (process.env.NODE_ENV === 'development') {
     console.log('Using Firebase emulators')
-    connectFirestoreEmulator(db, 'localhost', 8080)
+    try {
+        connectFirestoreEmulator(db, 'localhost', 8080)
+    } catch (e) {
+        // ignore if already connected
+    }
+    try {
+        // Auth emulator uses http (not https) and requires disableWarnings to avoid duplicate connection errors
+        connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+    } catch (e) {
+        // ignore if already connected
+    }
 }

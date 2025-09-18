@@ -5,9 +5,12 @@ import { getAuthenticatedAppForUser } from "@/lib/firebase/serverApp"
 import { initFirebase } from "@/lib/firebase/initFirebase"
 import FirebaseAuth from "./firebaseAuth"
 import { User } from "firebase/auth"
-import { Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenuToggle } from "@heroui/navbar"
+import { Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle } from "@heroui/navbar"
 import Link from "next/link"
 import { Providers } from "./providers"
+import { Button } from "@heroui/button"
+import { useRoles } from "./clientAuth"
+import WithAuth from "./withAuthServer"
 initFirebase()
 
 const sansFont = Nunito({
@@ -47,13 +50,15 @@ export default async function RootLayout({
                 <NavbarItem>
                   <Link href="/">Events</Link>
                 </NavbarItem>
-                <NavbarItem>
-                  <Link href="/create">Post a ride</Link>
-                </NavbarItem>
+                <WithAuth role="leader">
+                  <NavbarItem>
+                    <Link href="/create">Post a ride</Link>
+                  </NavbarItem>
+                </WithAuth>
               </NavbarContent>
               <NavbarContent justify="end">
                 <FirebaseAuth initialUser={currentUser?.toJSON() as User} />
-                <NavbarMenuToggle aria-controls="basic-navbar-nav" />
+                <NavbarMenuToggle className="sm:hidden" aria-controls="basic-navbar-nav" />
               </NavbarContent>
             </Navbar>
             <main className="flex-1 container mx-auto px-4 py-8">

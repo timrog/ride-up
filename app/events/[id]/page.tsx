@@ -8,7 +8,7 @@ import { toFormattedDate, toFormattedTime } from "app/format"
 import Link from "next/link"
 import { Button, ButtonGroup } from "@heroui/button"
 import { DocumentDuplicateIcon, MapIcon, MapPinIcon, PencilIcon, StopIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/outline"
-import WithAuth from "app/withAuth"
+import WithAuth from "app/withAuthServer"
 import { Alert } from "@heroui/alert"
 import CancelButton from "./cancelButton"
 

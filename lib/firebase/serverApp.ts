@@ -5,7 +5,7 @@ import "server-only"
 import { cookies } from "next/headers"
 import { initializeServerApp, initializeApp } from "firebase/app"
 
-import { getAuth } from "firebase/auth"
+import { getAuth, connectAuthEmulator } from "firebase/auth"
 import { clientCredentials } from "./initFirebase"
 
 // Returns an authenticated client SDK instance for use in Server Side Rendering
@@ -25,6 +25,13 @@ export async function getAuthenticatedAppForUser() {
   )
 
   const auth = getAuth(firebaseServerApp)
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+    } catch (e) {
+      // ignore if already connected
+    }
+  }
   await auth.authStateReady()
 
   return { firebaseServerApp, auth, currentUser: auth.currentUser }
