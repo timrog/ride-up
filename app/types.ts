@@ -12,6 +12,7 @@ export interface CalendarEvent {
     routeLink: string
     createdAt: Timestamp
     createdBy: string
+    tags: string[]
     isCancelled: boolean
 }
 

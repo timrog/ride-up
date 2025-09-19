@@ -40,7 +40,7 @@ const EventPage = async ({
                 {toFormattedDate(event.date)} <span
                     className="text-gray-500">{toFormattedTime(event.date)}</span>
             </h2>
-            <p><MapPinIcon height={18} className="inline" /> {event.location}</p>
+            <p className="flex items-center gap-1"><MapPinIcon height={18} /> {event.location}</p>
             <ButtonGroup className="mb-4">
                 <WithAuth role="leader" resourceOwner={event.createdBy}>
                     <Button href={`/events/${id}/edit`}

@@ -5,11 +5,9 @@ import { getAuthenticatedAppForUser } from "@/lib/firebase/serverApp"
 import { initFirebase } from "@/lib/firebase/initFirebase"
 import FirebaseAuth from "./firebaseAuth"
 import { User } from "firebase/auth"
-import { Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle } from "@heroui/navbar"
+import { Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenuToggle } from "@heroui/navbar"
 import Link from "next/link"
 import { Providers } from "./providers"
-import { Button } from "@heroui/button"
-import { useRoles } from "./clientAuth"
 import WithAuth from "./withAuthServer"
 initFirebase()
 

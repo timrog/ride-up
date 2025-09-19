@@ -6,13 +6,15 @@
 		"dev": "next dev --turbopack --experimental-https",
 		"build": "next build",
 		"start": "next start",
-		"emulator": "firebase emulators:start",
+		"emulator": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
 		"dev:emulator": "concurrently \"npm run emulator\" \"npm run dev\""
 	},
 	"dependencies": {
 		"@heroicons/react": "^2.2.0",
 		"@heroui/react": "^2.7.6",
+		"@react-aria/i18n": "^3.12.12",
 		"@tailwindcss/postcss": "^4.1.4",
+		"concurrently": "^9.2.1",
 		"cookies-next": "^5.1.0",
 		"firebase": "^11.6.0",
 		"firebase-admin": "^13.2.0",

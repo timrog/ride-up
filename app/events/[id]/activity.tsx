@@ -7,7 +7,7 @@ import React, { KeyboardEvent, useEffect, useState } from 'react'
 import { Comment, EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
 import { Button, Card, CardBody, CardHeader, Textarea } from "@heroui/react"
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline'
+import { PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
 import { useRoles } from "app/clientAuth"
 
 export default function Comments({ id }: { id: string }) {
@@ -105,8 +105,10 @@ export default function Comments({ id }: { id: string }) {
 
         {roles.includes("member") &&
             <ul className="text-lg">
-                {Object.entries(activity.signups).map(([userId, signup]) => <li key={userId}>{signup.name}</li>)}
-            </ul>}
+                {Object.entries(activity.signups).map(([userId, signup]) =>
+                    <li key={userId} className="flex items-center gap-1"><UserIcon height={18} /> {signup.name}</li>)}
+            </ul>
+        }
 
         <div className="my-3">
 
