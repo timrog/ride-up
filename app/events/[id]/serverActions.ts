@@ -52,16 +52,10 @@ export async function duplicateEvent(params: DuplicateParams) {
     const batchResults: string[] = []
     await Promise.all(targetDates.map(d => {
         const newDoc: Omit<CalendarEvent, 'id'> = {
-            title: source.title,
-            description: source.description,
-            duration: source.duration,
-            location: source.location,
-            routeLink: source.routeLink,
-            tags: [...source.tags],
+            ...source,
             isCancelled: false,
             date: Timestamp.fromDate(d),
             createdAt: Timestamp.now(),
-            createdBy: source.createdBy,
             linkId: source.linkId || eventId,
         }
         return addDoc(collection(db, 'events'), newDoc)
