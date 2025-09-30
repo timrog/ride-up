@@ -6,9 +6,10 @@ import { getAuth } from "firebase/auth"
 import React, { KeyboardEvent, useEffect, useState } from 'react'
 import { Comment, EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
-import { Button, Card, CardBody, CardHeader, Textarea } from "@heroui/react"
+import { Button, Card, CardBody, CardHeader, PressEvent, Textarea } from "@heroui/react"
 import { PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
 import { useRoles } from "app/clientAuth"
+import IconLine from "@/components/IconLine"
 
 export default function Comments({ id }: { id: string }) {
     const newActivity = { signups: {}, comments: [] }
@@ -18,9 +19,9 @@ export default function Comments({ id }: { id: string }) {
     const activityDoc = doc(db, 'events', id, 'activity', 'private')
     const currentUser = getAuth().currentUser
 
-    async function submitComment(e: Event) {
+    async function submitComment(e: React.FormEvent | PressEvent) {
         if (!currentUser) return console.error("No user signed in")
-        e.preventDefault()
+        if ('preventDefault' in e) e.preventDefault()
         if (commentBusy) return
         setCommentBusy(true)
         const commentRecord: Comment = {
@@ -106,7 +107,7 @@ export default function Comments({ id }: { id: string }) {
         {roles.includes("member") &&
             <ul className="text-lg">
                 {Object.entries(activity.signups).map(([userId, signup]) =>
-                    <li key={userId} className="flex items-center gap-1"><UserIcon height={18} /> {signup.name}</li>)}
+                    <IconLine icon={UserIcon} key={userId}>{signup.name}</IconLine>)}
             </ul>
         }
 

@@ -1,5 +1,5 @@
 
-import { collection, query, getDocs, Timestamp } from 'firebase/firestore'
+import { collection, query, getDocs, Timestamp, where, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import React from 'react'
 import Link from 'next/link'
@@ -9,21 +9,22 @@ import { PushNotificationManager } from "./pushNotifications"
 import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
 import { toFormattedDate, toFormattedTime } from "./format"
 import { CalendarIcon, MapPinIcon } from "@heroicons/react/24/outline"
+import { Chip } from "@heroui/chip"
 
-async function getUpcomingEvents(): Promise<CalendarEvent[]> {
+async function getUpcomingEvents() {
     const eventsRef = collection(db, 'events')
-
-    // Query for events with date greater than current time
-    const q = query(eventsRef)
+    const q = query(eventsRef,
+        where('date', '>', Timestamp.fromDate(new Date())),
+        orderBy('date', 'asc'))
 
     const querySnapshot = await getDocs(q)
-    const events: CalendarEvent[] = []
+    const events: (CalendarEvent & { id: string })[] = []
 
     querySnapshot.forEach((doc) => {
         events.push({
             id: doc.id,
-            ...doc.data()
-        } as CalendarEvent)
+            ...doc.data() as CalendarEvent
+        })
     })
 
     return events
@@ -52,21 +53,24 @@ export default async function EventList() {
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardBody>
-                                {event.description}
-                            </CardBody>
                             <CardFooter>
-                                {event.location}
+                                <div className="flex flex-wrap gap-2">
+                                    {event.tags?.map((tag, index) => (
+                                        <Chip key={index}>{tag}</Chip>
+                                    ))}
+                                </div>
                             </CardFooter>
                         </Card>
                     </div>
                 ))}
-            </div>            {events.length === 0 && (
-                <p className="text-center">No upcoming events found.</p>
-            )}
+            </div>            {
+                events.length === 0 && (
+                    <p className="text-center">No upcoming events found.</p>
+                )
+            }
 
             <InstallPrompt />
             <PushNotificationManager />
-        </div>
+        </div >
     )
 };

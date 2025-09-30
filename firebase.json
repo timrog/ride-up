@@ -34,5 +34,16 @@
       "port": 5001
     },
     "singleProjectMode": true
+  },
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "frameworksBackend": {
+      "region": "europe-west1"
+    }
   }
 }

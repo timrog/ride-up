@@ -9,8 +9,9 @@ const WithAuth = ({ role, resourceOwner, children }: {
     children: ReactNode
 }) => {
     const { roles, currentUser } = useRoles()
-    return roles.includes(role)
-        && (!resourceOwner || currentUser?.uid === resourceOwner)
+    return (roles.includes(role)
+        && (!resourceOwner || currentUser?.uid === resourceOwner))
+        || roles.includes('admin')
         ? <>{children}</> : null
 }
 

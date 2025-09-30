@@ -6,6 +6,8 @@ import { cookies } from "next/headers"
 import { initializeServerApp, initializeApp } from "firebase/app"
 
 import { getAuth, connectAuthEmulator } from "firebase/auth"
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
+
 import { clientCredentials } from "./initFirebase"
 
 // Returns an authenticated client SDK instance for use in Server Side Rendering
@@ -33,6 +35,12 @@ export async function getAuthenticatedAppForUser() {
     }
   }
   await auth.authStateReady()
+  const db = getFirestore(firebaseServerApp)
+  if (process.env.NODE_ENV === "development") {
+    try {
+      connectFirestoreEmulator(db, "localhost", 8080)
+    } catch { }
+  }
 
-  return { firebaseServerApp, auth, currentUser: auth.currentUser }
+  return { firebaseServerApp, auth, currentUser: auth.currentUser, db }
 }

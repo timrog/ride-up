@@ -1,5 +1,5 @@
 import React from 'react'
-import { getDoc, doc, DocumentSnapshot, updateDoc } from 'firebase/firestore'
+import { getDoc, doc, DocumentSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import { CalendarEvent } from 'app/types'
 import Activity from './activity'
@@ -7,10 +7,13 @@ import RouteEmbed from "./routeEmbed"
 import { toFormattedDate, toFormattedTime } from "app/format"
 import Link from "next/link"
 import { Button, ButtonGroup } from "@heroui/button"
-import { DocumentDuplicateIcon, MapIcon, MapPinIcon, PencilIcon, StopIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/outline"
+import { MapPinIcon, PencilIcon, UserCircleIcon } from "@heroicons/react/24/outline"
+import IconLine from "@/components/IconLine"
 import WithAuth from "app/withAuthServer"
 import { Alert } from "@heroui/alert"
 import CancelButton from "./cancelButton"
+import DuplicateEventButton from "./DuplicateEventButton"
+import FormatHtml from "app/FormatHtml"
 
 async function getEvent(id: string) {
     const eventDoc = await getDoc(doc(db, 'events', id)) as DocumentSnapshot<CalendarEvent>
@@ -40,7 +43,8 @@ const EventPage = async ({
                 {toFormattedDate(event.date)} <span
                     className="text-gray-500">{toFormattedTime(event.date)}</span>
             </h2>
-            <p className="flex items-center gap-1"><MapPinIcon height={18} /> {event.location}</p>
+            <IconLine icon={MapPinIcon}>{event.location}</IconLine>
+            <IconLine icon={UserCircleIcon}>{event.createdByName}</IconLine>
             <ButtonGroup className="mb-4">
                 <WithAuth role="leader" resourceOwner={event.createdBy}>
                     <Button href={`/events/${id}/edit`}
@@ -48,14 +52,11 @@ const EventPage = async ({
                         startContent={<PencilIcon height={18} />}>
                         Edit
                     </Button>
-                    <Button
-                        startContent={<DocumentDuplicateIcon height={18} />}>
-                        Duplicate
-                    </Button>
+                    <DuplicateEventButton eventId={id} />
                     <CancelButton id={id} isCancelled={event.isCancelled} />
                 </WithAuth>
             </ButtonGroup>
-            <p className="whitespace-pre-line">{event.description}</p>
+            <p><FormatHtml content={event.description} /></p>
         </div >
     )
 

@@ -3,17 +3,17 @@ service cloud.firestore {
 
   function hasRole(role) {
     return request.auth != null
-      && request.auth.token.roles.hasAny([role]);
+      && request.auth.token.roles.hasAny([role, "admin"]);
   }
 
   match /databases/{database}/documents {
     match /events/{eventId} {
       allow read;
       allow create: if request.auth != null 
-        && request.resource.data.createdBy == request.auth.uid
+        && hasRole("leader")
+        && debug(request.resource.data.createdBy) == debug(request.auth.uid)
       allow update: if request.auth != null
-        && (request.auth.uid == resource.data.createdBy
-        || request.auth.token.role == "admin")
+        && hasRole("leader")
 
       match /activity/private {
         allow read: if hasRole("member");

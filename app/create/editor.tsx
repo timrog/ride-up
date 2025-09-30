@@ -4,8 +4,7 @@ import { getAuth } from "firebase/auth"
 import { Timestamp } from "firebase/firestore"
 import React, { ChangeEvent, useState } from "react"
 
-import { CalendarDate, DateValue, fromDate, getLocalTimeZone, Time, toCalendarDate, toCalendarDateTime, today, toTime, ZonedDateTime } from "@internationalized/date"
-import { get } from "http"
+import { CalendarDate, DateValue, fromDate, getLocalTimeZone, Time, toCalendarDate, toCalendarDateTime, today, toTime } from "@internationalized/date"
 import { I18nProvider } from "@react-aria/i18n"
 
 type FormDataType = {
@@ -48,6 +47,7 @@ export default function EventForm({ event, onSubmit }
         if (!event) {
             newDoc.createdAt = Timestamp.now()
             newDoc.createdBy = getAuth().currentUser?.uid || ''
+            newDoc.createdByName = getAuth().currentUser?.displayName || 'Anonymous'
         }
         onSubmit(newDoc)
     }
@@ -120,6 +120,7 @@ export default function EventForm({ event, onSubmit }
 
                 <Input
                     label="Event Title"
+                    size="lg"
                     placeholder="e.g. Saturday Mod Ride"
                     type="text"
                     name="title"
@@ -130,6 +131,7 @@ export default function EventForm({ event, onSubmit }
 
                 <Input
                     label="Meeting point"
+                    size="lg"
                     placeholder="e.g. Regents Park"
                     type="text"
                     name="location"
@@ -140,13 +142,14 @@ export default function EventForm({ event, onSubmit }
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-                    <DatePicker label="Date" isRequired value={formData.date}
+                    <DatePicker label="Date" size="lg" isRequired value={formData.date}
                         onChange={d => setFormData(prevState => ({
                             ...prevState,
                             date: d as CalendarDate
                         }))}
                         minValue={today(getLocalTimeZone())} />
                     <TimeInput label="Start time" isRequired value={formData.time}
+                        size="lg"
                         onChange={t => setFormData(prevState => ({
                             ...prevState,
                             time: t as Time
@@ -155,6 +158,7 @@ export default function EventForm({ event, onSubmit }
 
                     <Select
                         name="duration"
+                        size="lg"
                         label="Duration"
                         defaultSelectedKeys={[formData.duration]}
                         onChange={e => setFormData(prevState => ({ ...prevState, duration: e.target.value }))}
@@ -174,12 +178,14 @@ export default function EventForm({ event, onSubmit }
                     value={formData.description}
                     onChange={handleChange}
                     minRows={3}
+                    size="lg"
                     isRequired
                 />
 
                 <Input
                     label="Link to the route"
                     placeholder="Strava or RideWithGPS route link"
+                    size="lg"
                     name="routeLink"
                     type="url"
                     pattern={`https\://(www\.)?(strava\.com/routes/\\d{6,}|ridewithgps.com/routes/\\d{6,})`}
@@ -198,13 +204,11 @@ export default function EventForm({ event, onSubmit }
                         isRequired
                         errorMessage="Please select at least one"
                     >
-                        {allTags.map(tag => <CustomCheckbox value={tag}>{tag}</CustomCheckbox>)}
+                        {allTags.map(tag => <CustomCheckbox key={tag} value={tag}>{tag}</CustomCheckbox>)}
                     </CheckboxGroup>
                 </div>
 
-                <Button
-                    type="submit" color="primary"
-                >
+                <Button type="submit" color="primary">
                     {event ? 'Save' : 'Create Event'}
                 </Button>
             </form >

@@ -47,7 +47,12 @@ const config = {
     },
     darkMode: "class",
     plugins: [
-        heroui()
+        heroui({
+            layout: {
+                fontSize: {
+                }
+            }
+        })
     ]
 }
 

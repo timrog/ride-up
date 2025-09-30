@@ -3,7 +3,6 @@ import { Timestamp } from "@firebase/firestore"
 export type MemberRole = "guest" | "leader" | "member" | "admin"
 
 export interface CalendarEvent {
-    id: string
     title: string
     date: Timestamp
     duration: number
@@ -12,6 +11,8 @@ export interface CalendarEvent {
     routeLink: string
     createdAt: Timestamp
     createdBy: string
+    createdByName: string
+    linkId?: string
     tags: string[]
     isCancelled: boolean
 }

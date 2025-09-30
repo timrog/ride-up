@@ -11,8 +11,9 @@ interface WithAuthProps {
 
 const WithAuth: React.FC<WithAuthProps> = async ({ role, resourceOwner, children }) => {
     const { roles, currentUser } = await getUser()
-    return roles.includes(role)
-        && (!resourceOwner || currentUser?.uid === resourceOwner)
+    return (roles.includes(role)
+        && (!resourceOwner || currentUser?.uid === resourceOwner))
+        || roles.includes('admin')
         ? <>{children}</> : null
 }
 

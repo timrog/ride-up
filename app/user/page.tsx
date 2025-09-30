@@ -31,7 +31,7 @@ const SignInPage = () => {
 
         if (process.env.NODE_ENV === 'development' && password) {
             signInWithEmailAndPassword(auth, email, password)
-                .then(() => router.push('/'))
+                .then(() => window.location.href = '/')
                 .catch((error) => {
                     console.error('Error signing in with email and password:', error)
                     alert('Failed to sign in. Please try again.')
