@@ -157,3 +157,6 @@ testem.log
 Thumbs.db
 *.vscode*
 certificates
+
+
+.firebase/
