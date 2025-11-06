@@ -31,5 +31,6 @@ export interface Comment {
     createdAt: Timestamp
     name: string
     userId: string
+    avatarUrl?: string
     text: string
 }

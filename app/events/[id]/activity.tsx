@@ -1,17 +1,19 @@
 'use client'
 
 import { db } from '@/lib/firebase/initFirebase'
-import { arrayUnion, doc, onSnapshot, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import React, { KeyboardEvent, useEffect, useState } from 'react'
-import { Comment, EventActivity } from 'app/types'
+import { EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
-import { Button, Card, CardBody, CardHeader, PressEvent, Textarea } from "@heroui/react"
+import { Avatar, Button, Card, CardBody, CardHeader, PressEvent, Textarea } from "@heroui/react"
 import { PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
 import { useRoles } from "app/clientAuth"
-import IconLine from "@/components/IconLine"
+import { IconLine } from "@/components/IconLine"
+import { addComment } from "app/serverActions"
+import WithAuth from "app/withAuthClient"
 
-export default function Comments({ id }: { id: string }) {
+export default function Activity({ id, isActive }: { id: string, isActive: boolean }) {
     const newActivity = { signups: {}, comments: [] }
     const [activity, setActivity] = useState<EventActivity>(newActivity)
     const [comment, setComment] = useState("")
@@ -24,60 +26,36 @@ export default function Comments({ id }: { id: string }) {
         if ('preventDefault' in e) e.preventDefault()
         if (commentBusy) return
         setCommentBusy(true)
-        const commentRecord: Comment = {
-            createdAt: Timestamp.now(),
-            name: currentUser.displayName || "Anonymous",
-            userId: currentUser.uid,
-            text: comment
+
+        try {
+            const result = await addComment(id, comment)
+            if (result.success) {
+                setComment('')
+            } else {
+                console.error('Failed to add comment:', result.error)
+            }
+        } catch (error) {
+            console.error('Error submitting comment:', error)
+        } finally {
+            setCommentBusy(false)
         }
-
-        if (activity == newActivity)
-            await setDoc(activityDoc, { ...newActivity, comments: [commentRecord] })
-        else
-            await updateDoc(activityDoc, { comments: arrayUnion(commentRecord) })
-
-        setComment('')
-        setCommentBusy(false)
     }
 
-    const { roles } = useRoles()
     useEffect(() => {
-        let snapshotUnsubscribe: (() => void) | null = null
-
-        const authUnsubscribe = getAuth().onIdTokenChanged(async (user) => {
-            if (user) {
-                try {
-                    await user.getIdToken(true)
-
-                    snapshotUnsubscribe = onSnapshot(activityDoc,
-                        (snapshot) => {
-                            if (snapshot.data()) {
-                                setActivity(snapshot.data() as EventActivity)
-                            }
-                        },
-                        (error) => {
-                            console.error('Firestore snapshot error:', error)
-                        }
-                    )
-                } catch (error) {
-                    console.error('Token refresh failed:', error)
+        return onSnapshot(activityDoc,
+            (snapshot) => {
+                if (snapshot.data()) {
+                    setActivity(snapshot.data() as EventActivity)
                 }
-            } else {
-                if (snapshotUnsubscribe) {
-                    snapshotUnsubscribe()
-                }
+            },
+            (error) => {
+                console.error('Firestore snapshot error:', error)
             }
-        })
-
-        return () => {
-            authUnsubscribe()
-            snapshotUnsubscribe?.()
-        }
+        )
     }, [id])
 
     const signupCount = Object.keys(activity.signups).length
-
-    const userId = getAuth().currentUser?.uid
+    const userId = currentUser?.uid
     const hasActiveSignup = !!(userId && activity.signups[userId])
 
     function formatRelative(date: Date): string {
@@ -101,47 +79,60 @@ export default function Comments({ id }: { id: string }) {
         return date.toLocaleDateString()
     }
 
-    return <>
-        <h2>{signupCount} {signupCount == 1 ? 'sign-up' : 'sign-ups'}</h2>
+    return <div className="md:grid md:grid-cols-2 md:gap-8"
+        style={{ gridTemplateColumns: '1fr 2fr' }}>
 
-        {roles.includes("member") &&
-            <ul className="text-lg">
-                {Object.entries(activity.signups).map(([userId, signup]) =>
-                    <IconLine icon={UserIcon} key={userId}>{signup.name}</IconLine>)}
-            </ul>
-        }
-
-        <div className="my-3">
-
-            {roles.includes("member") ?
-                <SignupButton id={id} active={hasActiveSignup} /> :
-                <div className="alert alert-warning">Please sign in to sign up for this event.</div>
-            }
-        </div>
-
-        <h2>Comments</h2>
         <div>
-            {activity.comments?.map(c => (
-                <Card className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
-                    <CardHeader className="text-sm">{c.name} &middot; {formatRelative(c.createdAt.toDate())}</CardHeader>
-                    <CardBody className="whitespace-pre-line">{c.text}</CardBody >
-                </Card >
-            ))
-            }
-        </div >
+            <h2>{signupCount} {signupCount == 1 ? 'sign-up' : 'sign-ups'}</h2>
 
-        <div className="flex items-end gap-2 mb-4 border border-gray-300 rounded-lg bg-gray-50">
-            <Textarea
-                min={1} minRows={1}
-                type="text"
-                size="lg"
-                placeholder="Type a message"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                onKeyDown={(e: KeyboardEvent) => e.key === 'Enter' && !e.shiftKey && submitComment(e)}
-            />
-            <Button isIconOnly radius="lg" className="p-2" color="primary" onPress={e => submitComment(e)}><PaperAirplaneIcon /></Button>
+            <WithAuth role="member">
+                <ul className="text-lg">
+                    {Object.entries(activity.signups).map(([userId, signup]) =>
+                        <IconLine icon={UserIcon} key={userId}>{signup.name}</IconLine>)}
+                </ul>
+            </WithAuth>
+
+            {isActive && <div className="my-3">
+                <SignupButton id={id} active={hasActiveSignup} />
+            </div>}
         </div>
-    </>
+        <div>
+            <h2>Comments</h2>
+            <div>
+                {activity.comments?.map(c => (
+                    <Card
+                        className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
+                        <CardHeader className="font-black flex gap-2">
+                            <Avatar src={c.avatarUrl || undefined} />
+                            <span>{c.name} &middot; {formatRelative(c.createdAt.toDate())}</span>
+                        </CardHeader>
+                        <CardBody className="whitespace-pre-line">{c.text}</CardBody >
+                    </Card >
+                ))
+                }
+            </div >
+
+            <div className="flex">
+                <Textarea
+                    classNames={{ input: 'self-center', inputWrapper: 'px-2' }}
+                    color="primary"
+                    min={1} minRows={1}
+                    size="lg"
+                    placeholder="Type a message"
+                    value={comment}
+                    radius="full"
+                    onChange={(e) => setComment(e.target.value)}
+                    onKeyDown={(e: KeyboardEvent) => e.key === 'Enter' && !e.shiftKey && submitComment(e)}
+                    startContent={
+                        <Avatar src={currentUser?.photoURL || undefined} className="self-start" />
+                    }
+                    endContent={
+                        <Button isIconOnly radius="full" className="p-2 self-end" color="primary" onPress={e => submitComment(e)}><PaperAirplaneIcon /></Button>
+                    }
+                />
+
+            </div>
+        </div>
+    </div>
 }
 

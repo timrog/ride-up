@@ -10,8 +10,9 @@ const FormatHtml: React.FC<FormatHtmlProps> = ({ content }) => {
         return marked.parse(text)
     }
 
+    const html = formatContent(content)
     return (
-        <span dangerouslySetInnerHTML={{ __html: formatContent(content) }} />
+        <span dangerouslySetInnerHTML={{ __html: html }} />
     )
 }
 

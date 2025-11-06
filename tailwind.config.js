@@ -12,9 +12,12 @@ const config = {
             fontFamily: {
                 sans: ['var(--font-sans)']
             },
+            background: {
+                pattern: 'rgb(0,91,156)',
+            },
             colors: {
                 primary: {
-                    DEFAULT: '#0084e6',
+                    DEFAULT: 'rgb(0,91,156)',
                     light: '#3b82f6',
                     dark: '#1e40af',
                 },
@@ -51,7 +54,8 @@ const config = {
             layout: {
                 fontSize: {
                 }
-            }
+            },
+
         })
     ]
 }

@@ -157,6 +157,8 @@ testem.log
 Thumbs.db
 *.vscode*
 certificates
-
+emulator-data
 
 .firebase/
+firebase-export-*
+service-account-key.json

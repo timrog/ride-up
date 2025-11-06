@@ -2,18 +2,15 @@ import React from 'react'
 import { getDoc, doc, DocumentSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import { CalendarEvent } from 'app/types'
-import Activity from './activity'
-import RouteEmbed from "./routeEmbed"
 import { toFormattedDate, toFormattedTime } from "app/format"
-import Link from "next/link"
-import { Button, ButtonGroup } from "@heroui/button"
-import { MapPinIcon, PencilIcon, UserCircleIcon } from "@heroicons/react/24/outline"
-import IconLine from "@/components/IconLine"
+import { MapPinIcon, UserCircleIcon } from "@heroicons/react/24/outline"
+import { IconLine } from "@/components/IconLine"
 import WithAuth from "app/withAuthServer"
 import { Alert } from "@heroui/alert"
-import CancelButton from "./cancelButton"
-import DuplicateEventButton from "./DuplicateEventButton"
+import EditButtons from "./EditButtons"
 import FormatHtml from "app/FormatHtml"
+import EventTabs from "./eventTabs"
+import { Chip } from "@heroui/chip"
 
 async function getEvent(id: string) {
     const eventDoc = await getDoc(doc(db, 'events', id)) as DocumentSnapshot<CalendarEvent>
@@ -32,45 +29,43 @@ const EventPage = async ({
         return <div className="text-center">Event not found</div>
     }
 
-    const Details = () => (
-        <div>
-            {event.isCancelled && (<Alert color="danger">
-                This event has been cancelled.
-            </Alert>)}
+    const isActive = event.date.toDate().getTime() > Date.now()
+        && !event.isCancelled
 
-            <h1>{event.title}</h1>
-            <h2>
-                {toFormattedDate(event.date)} <span
-                    className="text-gray-500">{toFormattedTime(event.date)}</span>
-            </h2>
-            <IconLine icon={MapPinIcon}>{event.location}</IconLine>
-            <IconLine icon={UserCircleIcon}>{event.createdByName}</IconLine>
-            <ButtonGroup className="mb-4">
+    const Details = () => (
+        <div className="md:grid md:grid-cols-2 md:gap-8"
+            style={{ gridTemplateColumns: '1fr 2fr' }}>
+            <div>
+                <h1>{event.title}</h1>
+                {event.isCancelled && (<Alert color="danger">
+                    This event has been cancelled.
+                </Alert>)}
+
+                <h2>
+                    {toFormattedDate(event.date.toDate())} <span
+                        className="text-gray-500">{toFormattedTime(event.date.toDate())}</span>
+                </h2>
+                <div className="mb-4 flex flex-wrap gap-1">
+                    {event.tags?.map((tag, index) => (
+                        <Chip key={index}>{tag}</Chip>
+                    ))}
+                </div>
+                <IconLine icon={MapPinIcon}>{event.location}</IconLine>
+                <IconLine icon={UserCircleIcon}>{event.createdByName}</IconLine>
                 <WithAuth role="leader" resourceOwner={event.createdBy}>
-                    <Button href={`/events/${id}/edit`}
-                        as={Link}
-                        startContent={<PencilIcon height={18} />}>
-                        Edit
-                    </Button>
-                    <DuplicateEventButton eventId={id} />
-                    <CancelButton id={id} isCancelled={event.isCancelled} />
+                    <EditButtons eventId={id} isCancelled={event.isCancelled} />
                 </WithAuth>
-            </ButtonGroup>
-            <p><FormatHtml content={event.description} /></p>
+            </div>
+            <div><FormatHtml content={event.description} /></div>
         </div >
     )
 
-    const Route = () => event.routeLink && <RouteEmbed link={event.routeLink} />
-
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <Details />
-                <Activity id={id} />
-            </div>
-            <div>
-                <Route />
-            </div>
+        <div>
+            <EventTabs id={id}
+                details={<Details />}
+                routeLink={event.routeLink}
+                isActive={isActive} />
         </div>
     )
 }

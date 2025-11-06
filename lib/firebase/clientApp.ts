@@ -13,9 +13,11 @@ export const firebaseApp = initializeApp(clientCredentials)
 export const auth = getAuth(firebaseApp)
 export const db = getFirestore(firebaseApp)
 export const storage = getStorage(firebaseApp)
-// Connect to emulators in development mode
-if (process.env.NODE_ENV === 'development') {
-    console.log('Using Firebase emulators')
+
+// Connect to emulators when USE_EMULATOR is true
+const useEmulator = process.env.NEXT_PUBLIC_USE_EMULATOR === 'true'
+if (useEmulator) {
+    console.log('🔧 Using Firebase emulators (client)')
     try {
         connectFirestoreEmulator(db, 'localhost', 8080)
     } catch (e) {
@@ -27,4 +29,6 @@ if (process.env.NODE_ENV === 'development') {
     } catch (e) {
         // ignore if already connected
     }
+} else {
+    console.log('🚀 Using live Firebase (client)')
 }

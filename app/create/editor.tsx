@@ -1,11 +1,13 @@
-import { Button, CheckboxGroup, Chip, DatePicker, Input, Select, SelectItem, Textarea, TimeInput, tv, useCheckbox, VisuallyHidden } from "@heroui/react"
+import { Autocomplete, AutocompleteItem, Button, DatePicker, Input, Select, SelectItem, Textarea, TimeInput } from "@heroui/react"
 import { CalendarEvent } from "app/types"
 import { getAuth } from "firebase/auth"
 import { Timestamp } from "firebase/firestore"
 import React, { ChangeEvent, useState } from "react"
+import SelectableTags from "@/components/SelectableTags"
 
 import { CalendarDate, DateValue, fromDate, getLocalTimeZone, Time, toCalendarDate, toCalendarDateTime, today, toTime } from "@internationalized/date"
 import { I18nProvider } from "@react-aria/i18n"
+import { defaultLocations } from "app/tags"
 
 type FormDataType = {
     date: DateValue | undefined
@@ -20,8 +22,6 @@ type FormDataType = {
 
 export default function EventForm({ event, onSubmit }
     : { event?: CalendarEvent, onSubmit: (event: Partial<CalendarEvent>) => void }) {
-
-    const allTags = ['Intro', 'Social', 'Social Mod', 'Mod', 'Mod+', 'Pacy', 'Race', 'Women-only', 'Triathlon', 'Gravel', 'MTB', 'Social event', 'Meeting', 'Swim', 'Run', 'Jets']
 
     const [formData, setFormData] = useState<FormDataType>({
         title: event?.title || '',
@@ -52,73 +52,23 @@ export default function EventForm({ event, onSubmit }
         onSubmit(newDoc)
     }
 
-    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-        const { name, value } = e.target
+    const handleValueChange = (name: keyof FormDataType) => (value: string | string[]) =>
         setFormData(prevState => ({
             ...prevState,
             [name]: value
         }))
-    }
 
-    const CustomCheckbox = (props) => {
-        const checkbox = tv({
-            slots: {
-                base: "border-none hover:bg-default-200",
-                content: "text-default-500",
-            },
-            variants: {
-                isSelected: {
-                    true: {
-                        base: "border-none bg-primary hover:bg-primary-500",
-                        content: "text-primary-foreground",
-                    },
-                },
-                isFocusVisible: {
-                    true: {
-                    },
-                },
-            },
-        })
-
-        const { children, isSelected, isFocusVisible, getBaseProps, getLabelProps, getInputProps } =
-            useCheckbox({
-                ...props,
-            })
-
-        const styles = checkbox({ isSelected, isFocusVisible })
-
-        return (
-            <label {...getBaseProps()}>
-                <VisuallyHidden>
-                    <input {...getInputProps()} />
-                </VisuallyHidden>
-                <Chip
-                    classNames={{
-                        base: styles.base(),
-                        content: styles.content(),
-                    }}
-                    color="primary"
-                    variant="faded"
-                    {...getLabelProps()}
-                >
-                    {children}
-                </Chip>
-            </label>
-        )
-    }
-
-    function handleSetTags(value: string[]): void {
-        setFormData(prevState => ({
-            ...prevState,
-            tags: value
-        }))
+    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+        const { name, value } = e.target
+        handleValueChange(name as keyof FormDataType)(value)
     }
 
     return (
         <I18nProvider locale="en-GB">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6 mx-auto max-w-2xl">
 
                 <Input
+                    autoFocus
                     label="Event Title"
                     size="lg"
                     placeholder="e.g. Saturday Mod Ride"
@@ -129,17 +79,18 @@ export default function EventForm({ event, onSubmit }
                     isRequired
                 />
 
-                <Input
+                <Autocomplete
+                    allowsCustomValue
                     label="Meeting point"
                     size="lg"
-                    placeholder="e.g. Regents Park"
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
+                    placeholder={`e.g. ${defaultLocations[0]}`}
+                    inputValue={formData.location}
+                    defaultItems={defaultLocations.map(loc => ({ loc }))}
+                    onInputChange={handleValueChange('location')}
                     isRequired
-                />
-
+                >
+                    {(item) => <AutocompleteItem key={item.loc}>{item.loc}</AutocompleteItem>}
+                </Autocomplete>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
                     <DatePicker label="Date" size="lg" isRequired value={formData.date}
@@ -195,17 +146,13 @@ export default function EventForm({ event, onSubmit }
                 />
 
                 <div className="flex flex-col gap-1 w-full">
-                    <CheckboxGroup
-                        className="gap-1"
-                        label="Select event type"
-                        orientation="horizontal"
+                    <SelectableTags
                         value={formData.tags}
-                        onChange={handleSetTags}
+                        onChange={handleValueChange('tags')}
+                        label="Select event type"
                         isRequired
                         errorMessage="Please select at least one"
-                    >
-                        {allTags.map(tag => <CustomCheckbox key={tag} value={tag}>{tag}</CustomCheckbox>)}
-                    </CheckboxGroup>
+                    />
                 </div>
 
                 <Button type="submit" color="primary">

@@ -1,39 +1,67 @@
 'use client'
 
-import { db } from '@/lib/firebase/initFirebase'
-import { deleteField, doc, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
 import { getAuth } from "firebase/auth"
 import React, { useState } from 'react'
-import { Button } from "@heroui/react"
+import { Button, addToast } from "@heroui/react"
+import { addSignup, removeSignup } from "app/serverActions"
 
 export default function SignupButton({ id, active }: { id: string, active: boolean }) {
-    const activityDoc = doc(db, 'events', id, 'activity', 'private')
+    const [isLoading, setIsLoading] = useState(false)
     const user = getAuth().currentUser
     if (!user) return null
 
-    const addSignup = async () => {
-        await setDoc(activityDoc,
-            {
-                signups: {
-                    [user.uid]: {
-                        name: user.displayName,
-                        createdAt: Timestamp.now()
-                    }
-                }
-            }, { merge: true }
-        )
+    const handleAddSignup = async () => {
+        setIsLoading(true)
+        try {
+            const result = await addSignup(id)
+            if (!result.success) {
+                addToast({
+                    title: "Error",
+                    description: "Failed to sign up for this event.",
+                    color: "danger"
+                })
+            }
+        } catch (error) {
+            addToast({
+                title: "Error",
+                description: "An unexpected error occurred.",
+                color: "danger"
+            })
+        } finally {
+            setIsLoading(false)
+        }
     }
 
-    const clearSignup = async () => {
-        await updateDoc(activityDoc, {
-            [`signups.${user.uid}`]: deleteField()
-        })
+    const handleRemoveSignup = async () => {
+        setIsLoading(true)
+        try {
+            const result = await removeSignup(id)
+            if (!result.success) {
+                addToast({
+                    title: "Error",
+                    description: "Failed to cancel your sign-up.",
+                    color: "danger"
+                })
+            }
+        } catch (error) {
+            addToast({
+                title: "Error",
+                description: "An unexpected error occurred.",
+                color: "danger"
+            })
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return active ? (
-        <Button onPress={clearSignup} color="warning">Cancel my sign-up</Button>
+        <Button onPress={handleRemoveSignup} color="warning" isDisabled={isLoading}>
+            Cancel my sign-up
+        </Button>
     ) : (
-        <Button onPress={addSignup} color="primary">Sign me up</Button>
+        <Button onPress={handleAddSignup} color="primary" isDisabled={isLoading}>
+            Sign me up
+        </Button>
     )
 }
 

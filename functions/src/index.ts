@@ -9,8 +9,6 @@ import { CloudEvent } from "firebase-functions/core"
 
 export * from './mailerlite'
 
-admin.initializeApp()
-
 const mm_email = defineSecret('MM_USERNAME')
 const mm_password = defineSecret('MM_PASSWORD')
 const secrets = [mm_email, mm_password]
@@ -67,6 +65,7 @@ export const SendMembersToAuth = onMessagePublished({
     topic: "all-members", region
 }, async (event) => {
     const records = decodeMembersCsv(event)
+    const newUsers = new Map<string, MemberEntry>(records.map(r => [r.Email.toLowerCase(), r]))
     const auth = admin.auth()
 
     const existingUsers = new Map<string, admin.auth.UserRecord>()
@@ -82,37 +81,47 @@ export const SendMembersToAuth = onMessagePublished({
     logger.info(`Retrieved ${existingUsers.keys.length} existing users`)
 
     let updated = 0, created = 0
-    records.forEach(async record => {
-        let user = existingUsers.get(record.Email)
-        if (!user) {
-            user = await auth.createUser({
-                email: record.Email,
-                displayName: `${record["First name"]} ${record["Last name"]}`,
-            })
-            created++
+    const keys = new Set<string>([...newUsers.keys(), ...existingUsers.keys()])
+    await Promise.all([...keys].map(async (key) => {
+        let existing = existingUsers.get(key)
+        let incoming = newUsers.get(key)
+
+        if (incoming) {
+            const displayName = `${incoming["First name"]} ${incoming["Last name"]}`.trim()
+            if (!existing) {
+                existing = (await auth.createUser({
+                    email: incoming.Email,
+                    displayName
+                }))
+
+                created++
+            }
+        }
+
+        const roles = new Set<string>()
+        if (incoming) {
+            roles.add('member')
+            if (incoming["Ride Leader"].toLowerCase() == 'yes') roles.add('leader')
+            if (incoming["Site role"].toLowerCase() == 'admin') roles.add('admin')
         }
 
         const claims = {
-            roles: [
-                'member',
-                ...record["Ride Leader"].toLowerCase() == 'yes' ? ['leader'] : [],
-                ...record["Site role"].toLowerCase() == 'admin' ? ['admin'] : []
-            ],
-            membership: record.Membership
+            roles: [...roles],
+            membership: incoming?.Membership || 'none'
         }
 
         try {
-            if (user.customClaims?.membership !== claims.membership
-                || user.customClaims?.roles.join() !== claims.roles.join()) {
-                await auth.setCustomUserClaims(user.uid, claims)
+            if (existing && (existing.customClaims?.membership !== claims.membership
+                || existing.customClaims?.roles.join() !== claims.roles.join())) {
+                await auth.setCustomUserClaims(existing.uid, claims)
                 updated++
             }
         } catch (error) {
-            logger.error(`Error setting claims for user ${record.email}:`, error)
+            logger.error(`Error setting claims for user ${key}:`, error)
         }
-    })
+    }))
 
-    logger.info(`Updated claims for ${records.length} records. Updated: ${updated} Created: ${created}`)
+    logger.info(`Updated claims for ${newUsers.size} new and ${existingUsers.size} existing users. Updated: ${updated} Created: ${created}`)
 })
 
 export const Scheduler = onSchedule({

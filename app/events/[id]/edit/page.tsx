@@ -61,11 +61,13 @@ export default function EditEventPage() {
         if (shouldUpdateAll) {
             const eventsQuery = query(
                 collection(db, "events"),
-                where("linkId", "==", event.linkId),
-                where("date", ">=", event.date)
+                where("linkId", "==", event.linkId)
             )
             const querySnapshot = await getDocs(eventsQuery)
-            const updatePromises = querySnapshot.docs.map(docSnap =>
+
+            const updatePromises = querySnapshot.docs.filter(docSnap =>
+                docSnap.data().date.toMillis() >= event.date.toMillis()
+            ).map(docSnap =>
                 next(docSnap.id, { ...updatedEvent, date: docSnap.data().date })
             )
             await Promise.all(updatePromises)
@@ -73,11 +75,11 @@ export default function EditEventPage() {
     }
 
     return (
-        <div>
+        <div className="container mx-auto px-4 py-8">
             <h1>Edit Event</h1>
             <EventForm event={event} onSubmit={handleUpdate} />
 
-            <Modal isOpen={!!modalResolve}>
+            <Modal isOpen={!!modalResolve} onClose={() => setModalResolve(null)}>
                 <ModalContent>
                     <ModalHeader>Update Recurring Event</ModalHeader>
                     <ModalBody>
