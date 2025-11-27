@@ -10,6 +10,7 @@
 		"emulator": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data"
 	},
 	"dependencies": {
+		"@google-cloud/pubsub": "^5.2.0",
 		"@heroicons/react": "^2.2.0",
 		"@heroui/react": "^2.7.6",
 		"@react-aria/i18n": "^3.12.12",

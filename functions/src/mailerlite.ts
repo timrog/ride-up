@@ -1,6 +1,6 @@
 import { defineSecret } from "firebase-functions/params"
 import { onMessagePublished } from "firebase-functions/pubsub"
-import { decodeMembersCsv } from "."
+import { decodeMembersCsv } from "./shared"
 const apiKey = defineSecret('MAILERLITE_API_KEY')
 const region = 'europe-west2'
 

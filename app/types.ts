@@ -25,12 +25,15 @@ export interface EventActivity {
 export interface Signup {
     createdAt: Timestamp
     name: string
+    userId: string
+    avatarUrl: string | null
+    phone: string | null
 }
 
 export interface Comment {
     createdAt: Timestamp
     name: string
     userId: string
-    avatarUrl?: string
+    avatarUrl: string | null
     text: string
 }

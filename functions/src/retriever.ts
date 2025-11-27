@@ -107,4 +107,8 @@ export type MemberEntry = {
     'Last name': string
     'Ride Leader': string
     'Membership': string
+    'Photo'?: string
+    'Members directory'?: string
+    'Mobile number'?: string
+    'Site role'?: string
 } & Record<string, string>

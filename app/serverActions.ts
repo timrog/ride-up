@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore'
-import { CalendarEvent } from './types'
+import { CalendarEvent, Signup, Comment } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import admin from 'firebase-admin'
 
@@ -85,8 +85,8 @@ export async function addComment(eventId: string, commentText: string) {
         const adminDb = getAdminApp().firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
-        const commentRecord = {
-            createdAt: admin.firestore.Timestamp.now(),
+        const commentRecord: Comment = {
+            createdAt: admin.firestore.Timestamp.now() as Timestamp,
             name: currentUser.displayName || "Anonymous",
             avatarUrl: currentUser.photoURL,
             userId: currentUser.uid,
@@ -130,9 +130,12 @@ export async function addSignup(eventId: string) {
         const adminDb = adminApp.firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
-        const signupRecord = {
+        const signupRecord: Signup = {
             name: currentUser.displayName || "Anonymous",
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            createdAt: admin.firestore.Timestamp.now() as Timestamp,
+            phone: currentUser.phoneNumber,
+            avatarUrl: currentUser.photoURL,
+            userId: currentUser.uid
         }
 
         try {

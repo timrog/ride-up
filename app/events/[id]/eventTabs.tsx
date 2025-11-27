@@ -4,9 +4,10 @@ import { ReactNode, useState } from "react"
 import Activity from "./activity"
 import RouteEmbed from "./routeEmbed"
 import WithAuth from "app/withAuthClient"
-import { Alert, Button, Drawer, DrawerBody, DrawerContent, DrawerFooter, DrawerHeader, Link } from "@heroui/react"
+import { Alert, Button, Link } from "@heroui/react"
 import { ChatBubbleLeftIcon, MapIcon, PencilIcon } from "@heroicons/react/24/outline"
 import { IconInline } from "@/components/IconLine"
+import MembershipHelpDrawer from "./MembershipHelpDrawer"
 
 interface EventTabsProps {
     id: string
@@ -32,25 +33,7 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
                 </Alert>
             </WithAuth>
 
-            <Drawer
-                isOpen={helpOpen}
-                onOpenChange={setHelpOpen}
-                isDismissable
-            >
-                <DrawerContent>
-                    <DrawerHeader>Help with sign in</DrawerHeader>
-                    <DrawerBody>
-                        <p>We can't find a valid membership for you. Either you haven't joined, your membership has lapsed, or the email address you've signed in with is not the one registered with the club. In the latter case, please sign out and sign back in again with the correct address. </p>
-                        <p><Link as={Link} target="_blank" href="https://membermojo.co.uk/vcgh/yourmembership">Manage my membership</Link></p>
-                        <p>If you've recently joined or renewed in the last few hours, we might not have caught up.</p>
-                        <p>Have you joined or renewed in the last 24 hours?</p>
-                    </DrawerBody>
-                    <DrawerFooter>
-                        <Button onPress={() => setHelpOpen(false)}>Yes</Button>
-                        <Button color="secondary" onPress={() => setHelpOpen(false)}>No</Button>
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
+            <MembershipHelpDrawer isOpen={helpOpen} onOpenChange={setHelpOpen} />
 
             <WithAuth none>
                 <Button as={Link} color="primary" href={`/user?returnUrl=/events/${id}`}>Sign in to sign up</Button>

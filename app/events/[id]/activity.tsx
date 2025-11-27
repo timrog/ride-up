@@ -8,10 +8,10 @@ import { EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
 import { Avatar, Button, Card, CardBody, CardHeader, PressEvent, Textarea } from "@heroui/react"
 import { PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
-import { useRoles } from "app/clientAuth"
 import { IconLine } from "@/components/IconLine"
 import { addComment } from "app/serverActions"
 import WithAuth from "app/withAuthClient"
+import Link from "next/link"
 
 export default function Activity({ id, isActive }: { id: string, isActive: boolean }) {
     const newActivity = { signups: {}, comments: [] }
@@ -88,7 +88,15 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
             <WithAuth role="member">
                 <ul className="text-lg">
                     {Object.entries(activity.signups).map(([userId, signup]) =>
-                        <IconLine icon={UserIcon} key={userId}>{signup.name}</IconLine>)}
+                        <li className="flex gap-2 items-center">
+                            <Avatar src={signup.avatarUrl || undefined} />
+                            {signup.name}
+                            {signup.phone &&
+                                <Link href={`https://wa.me/${signup.phone.replace(/\D/g, '')}`} target="_blank">
+                                    <img src="/whatsapp.png" alt="WhatsApp" title={signup.phone} width={24} />
+                                </Link>}
+                        </li>
+                    )}
                 </ul>
             </WithAuth>
 

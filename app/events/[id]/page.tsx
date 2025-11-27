@@ -3,7 +3,7 @@ import { getDoc, doc, DocumentSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import { CalendarEvent } from 'app/types'
 import { toFormattedDate, toFormattedTime } from "app/format"
-import { MapPinIcon, UserCircleIcon } from "@heroicons/react/24/outline"
+import { ChevronLeftIcon, MapPinIcon, UserCircleIcon } from "@heroicons/react/24/outline"
 import { IconLine } from "@/components/IconLine"
 import WithAuth from "app/withAuthServer"
 import { Alert } from "@heroui/alert"
@@ -11,6 +11,7 @@ import EditButtons from "./EditButtons"
 import FormatHtml from "app/FormatHtml"
 import EventTabs from "./eventTabs"
 import { Chip } from "@heroui/chip"
+import Link from "next/link"
 
 async function getEvent(id: string) {
     const eventDoc = await getDoc(doc(db, 'events', id)) as DocumentSnapshot<CalendarEvent>
@@ -36,6 +37,8 @@ const EventPage = async ({
         <div className="md:grid md:grid-cols-2 md:gap-8"
             style={{ gridTemplateColumns: '1fr 2fr' }}>
             <div>
+                <Link href="/"><IconLine icon={ChevronLeftIcon}>All events</IconLine></Link>
+
                 <h1>{event.title}</h1>
                 {event.isCancelled && (<Alert color="danger">
                     This event has been cancelled.

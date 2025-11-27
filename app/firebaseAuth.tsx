@@ -41,6 +41,7 @@ export default function FirebaseAuth() {
             <DropdownMenu aria-label="Profile Actions" variant="flat">
                 {!user && <DropdownItem key="login" href={`/user?returnUrl=${encodeURIComponent(currentPath)}`}>Sign in</DropdownItem> || null}
                 {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
+                <DropdownItem key="postRide" color="primary" href="/create">Post a ride</DropdownItem>
             </DropdownMenu>
         </Dropdown>)
 

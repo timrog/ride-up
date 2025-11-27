@@ -23,32 +23,11 @@ export default function () {
       <NavbarBrand>
         <Link href="https://vcgh.co.uk"><img src="https://vcgh.co.uk/wp-content/uploads/2025/04/VCGH-white.svg" alt="Logo" width="250" /></Link>
       </NavbarBrand>
-      <NavbarContent className="hidden sm:flex gap-8 font-black" justify="center">
-        <NavbarItem>
-          <Link href="/" className="text-white">Events</Link>
-        </NavbarItem>
-        <WithAuth role="leader">
-          <NavbarItem>
-            <Button href="/create" as={Link} color="secondary">Post a ride</Button>
-          </NavbarItem>
-        </WithAuth>
-      </NavbarContent>
       <NavbarContent justify="end">
         <Suspense fallback={<div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />}>
           <FirebaseAuth />
         </Suspense>
-        <NavbarMenuToggle
-          className="sm:hidden"
-          aria-controls="basic-navbar-nav"
-          icon={isOpen => isOpen ? <XMarkIcon /> : Triburger}
-        />
       </NavbarContent>
-      <NavbarMenu className="gap-4 py-4">
-        <NavbarMenuItem><Link href="/" className="text-black hover:text-secondary">Event listing</Link></NavbarMenuItem>
-        <WithAuth role="leader">
-          <NavbarMenuItem><Link href="/create" className="text-black hover:text-secondary">Post a ride</Link></NavbarMenuItem>
-        </WithAuth>
-      </NavbarMenu>
     </Navbar>
 
   )
