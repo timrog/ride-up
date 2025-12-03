@@ -2,6 +2,13 @@ import admin from 'firebase-admin'
 import makeFetchCookie from 'fetch-cookie'
 import * as logger from "firebase-functions/logger"
 import { PubSub } from '@google-cloud/pubsub'
+import { onMessagePublished } from "firebase-functions/v2/pubsub"
+import { defineSecret } from "firebase-functions/params"
+
+const mm_email = defineSecret('MM_USERNAME')
+const mm_password = defineSecret('MM_PASSWORD')
+const secrets = [mm_email, mm_password]
+const region = 'europe-west2'
 
 const pubsub = new PubSub()
 const allMembersTopic = pubsub.topic('all-members')
@@ -90,8 +97,8 @@ async function signInAndDownload(mm_email: string, mm_password: string) {
     return response
 }
 
-export async function retrieveMembers(validationLink: string | undefined, mm_email: string, mm_password: string) {
-    const csvBuffer = await getMembersCsv(validationLink, mm_email, mm_password)
+async function retrieveMembers(validationLink?: string) {
+    const csvBuffer = await getMembersCsv(validationLink, mm_email.value(), mm_password.value())
     if (!csvBuffer) return
 
     await allMembersTopic.publishMessage({
@@ -100,6 +107,15 @@ export async function retrieveMembers(validationLink: string | undefined, mm_ema
 
     logger.info(`Published CSV of ${csvBuffer.byteLength} bytes to MemberCsv topic`)
 }
+
+export const RefreshMembers = onMessagePublished({
+    topic: "refresh-members",
+    secrets, region
+}, (event) => {
+    const message = event.data.message.json
+    logger.info("Received refresh members request", message)
+    return retrieveMembers(message.validationLink)
+})
 
 export type MemberEntry = {
     Email: string,

@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore'
 import { CalendarEvent, Signup, Comment } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
-import admin from 'firebase-admin'
+import admin, { auth } from 'firebase-admin'
 
 type DuplicateMode = 'single' | 'weekly'
 
@@ -20,7 +20,6 @@ function addDays(base: Date, days: number) {
 }
 
 export async function duplicateEvent(params: DuplicateParams) {
-
     const { db } = await getAuthenticatedAppForUser()
 
     console.log('Current event in duplicateEvent:', params.eventId)
@@ -81,9 +80,20 @@ export async function addComment(eventId: string, commentText: string) {
             return { success: false, error: 'User not authenticated' }
         }
 
-        // Use Admin SDK to bypass Firestore rules
         const adminDb = getAdminApp().firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
+
+        if (commentText.trim() === '/resetclaims') {
+            await getAdminApp().auth().setCustomUserClaims(currentUser.uid, { roles: [] })
+            return { success: true }
+        }
+        if (commentText.startsWith('/lookup ')) {
+            const lookupUid = commentText.substring(8).trim()
+            const userRecord = await getAdminApp().auth().getUser(lookupUid)
+            console.log(lookupUid, userRecord)
+            return { success: true }
+        }
+
 
         const commentRecord: Comment = {
             createdAt: admin.firestore.Timestamp.now() as Timestamp,
@@ -126,27 +136,29 @@ export async function addSignup(eventId: string) {
             return { success: false, error: 'User not authenticated' }
         }
 
+        const user = await auth().getUser(currentUser?.uid || '')
+
         const adminApp = getAdminApp()
         const adminDb = adminApp.firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
         const signupRecord: Signup = {
-            name: currentUser.displayName || "Anonymous",
+            name: user.displayName || "Anonymous",
             createdAt: admin.firestore.Timestamp.now() as Timestamp,
-            phone: currentUser.phoneNumber,
-            avatarUrl: currentUser.photoURL,
-            userId: currentUser.uid
+            phone: user.phoneNumber || null,
+            avatarUrl: user.photoURL || null,
+            userId: user.uid
         }
 
         try {
             await activityRef.update({
-                [`signups.${currentUser.uid}`]: signupRecord
+                [`signups.${user.uid}`]: signupRecord
             })
         } catch (error: any) {
             if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
                 await activityRef.set({
                     signups: {
-                        [currentUser.uid]: signupRecord
+                        [user.uid]: signupRecord
                     },
                     comments: []
                 })

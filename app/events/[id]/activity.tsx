@@ -8,7 +8,6 @@ import { EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
 import { Avatar, Button, Card, CardBody, CardHeader, PressEvent, Textarea } from "@heroui/react"
 import { PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
-import { IconLine } from "@/components/IconLine"
 import { addComment } from "app/serverActions"
 import WithAuth from "app/withAuthClient"
 import Link from "next/link"
@@ -88,7 +87,7 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
             <WithAuth role="member">
                 <ul className="text-lg">
                     {Object.entries(activity.signups).map(([userId, signup]) =>
-                        <li className="flex gap-2 items-center">
+                        <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
                             <Avatar src={signup.avatarUrl || undefined} />
                             {signup.name}
                             {signup.phone &&

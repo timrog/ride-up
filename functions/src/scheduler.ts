@@ -1,6 +1,6 @@
 import * as logger from "firebase-functions/logger"
 import { onSchedule } from "firebase-functions/v2/scheduler"
-import { retrieveMembers } from "./retriever"
+import { retrieveMembers } from "./refreshMembers"
 import { defineSecret } from "firebase-functions/params"
 
 const mm_email = defineSecret('MM_USERNAME')
@@ -14,5 +14,5 @@ export const Scheduler = onSchedule({
     secrets, region
 }, () => {
     logger.info("Schedule started")
-    return retrieveMembers(undefined, mm_email.value(), mm_password.value())
+    return retrieveMembers(undefined)
 })

@@ -40,14 +40,13 @@ export async function GET(request: NextRequest) {
             timezone: 'Europe/London',
             refreshInterval: 'PT1H',
             domain: 'vcgh.co.uk',
-            organizerEmail: 'noreply@VCGH.app',
             organizerName: 'VCGH'
         }
 
         const stream = new ReadableStream({
             start(controller) {
                 const encoder = new TextEncoder()
-                const iterator = generateICalStream(events, config, request.nextUrl.origin)
+                const iterator = generateICalStream(events, config, "https://calendars.vcgh.co.uk")
 
                 let result = iterator.next()
                 while (!result.done) {

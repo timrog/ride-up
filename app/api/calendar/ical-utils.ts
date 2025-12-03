@@ -35,7 +35,6 @@ export interface ICalConfig {
     timezone?: string
     refreshInterval?: string
     domain: string
-    organizerEmail: string
     organizerName: string
 }
 
@@ -88,7 +87,7 @@ export function* generateICalStream(
             `SUMMARY:${summary}`,
             `DESCRIPTION:${description}`,
             `LOCATION:${location}`,
-            `ORGANIZER;CN=${organizer}:MAILTO:${config.organizerEmail}`,
+            `ORGANIZER;CN=${organizer}`,
             `STATUS:${event.isCancelled ? 'CANCELLED' : 'CONFIRMED'}`,
             'TRANSP:OPAQUE',
             'SEQUENCE:0'

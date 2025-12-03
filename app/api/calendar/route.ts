@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
             calName: 'RideUp Events',
             calDesc: 'Upcoming cycling events from RideUp',
             domain: 'rideup.app',
-            organizerEmail: 'noreply@rideup.app',
             organizerName: 'RideUp'
         }
 
