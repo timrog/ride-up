@@ -3,11 +3,13 @@
 import Link from "next/link"
 import { useState } from "react"
 import { Button, ButtonGroup } from "@heroui/button"
-import { DocumentDuplicateIcon, EllipsisVerticalIcon, PencilIcon, UserIcon, UsersIcon, XCircleIcon } from "@heroicons/react/24/outline"
+import { DocumentDuplicateIcon, EllipsisVerticalIcon, PencilIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon } from "@heroicons/react/24/outline"
 import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/dropdown"
 import TransferOwnerDrawer from "./TransferOwnerDrawer"
 import DuplicateEventDrawer from "./DuplicateEventDrawer"
 import { useCancelEvent } from "./useCancelEvent"
+import { useRoles } from "app/clientAuth"
+import DeleteEventDrawer from "./DeleteEventDrawer"
 
 interface EditButtonsProps {
     eventId: string
@@ -17,7 +19,9 @@ interface EditButtonsProps {
 export default function EditButtons({ eventId, isCancelled }: EditButtonsProps) {
     const [transferOpen, setTransferOpen] = useState(false)
     const [duplicateOpen, setDuplicateOpen] = useState(false)
+    const [deleteOpen, setDeleteOpen] = useState(false)
     const { handleCancel } = useCancelEvent(eventId, isCancelled)
+    const { roles } = useRoles()
 
     return (
         <>
@@ -54,12 +58,23 @@ export default function EditButtons({ eventId, isCancelled }: EditButtonsProps) 
                         >
                             {isCancelled ? "Uncancel" : "Cancel"}
                         </DropdownItem>
+                        {roles?.includes("admin") ? (
+                            <DropdownItem
+                                key="delete"
+                                className="text-danger" color="danger"
+                                startContent={<TrashIcon height={18} />}
+                                onPress={() => setDeleteOpen(true)}
+                            >
+                                Delete
+                            </DropdownItem>
+                        ) : null}
                     </DropdownMenu>
                 </Dropdown>
             </ButtonGroup>
 
             <TransferOwnerDrawer eventId={eventId} isOpen={transferOpen} onOpenChange={setTransferOpen} />
             <DuplicateEventDrawer eventId={eventId} isOpen={duplicateOpen} onOpenChange={setDuplicateOpen} />
+            <DeleteEventDrawer eventId={eventId} isOpen={deleteOpen} onOpenChange={setDeleteOpen} />
         </>
     )
 }

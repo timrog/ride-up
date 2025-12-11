@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, addDoc, collection, Timestamp, updateDoc, deleteDoc } from 'firebase/firestore'
 import { CalendarEvent, Signup, Comment } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import admin, { auth } from 'firebase-admin'
@@ -130,17 +130,17 @@ export async function addComment(eventId: string, commentText: string) {
 
 export async function addSignup(eventId: string) {
     try {
+        const adminApp = getAdminApp()
+
         const { currentUser } = await getAuthenticatedAppForUser()
 
         if (!currentUser) {
             return { success: false, error: 'User not authenticated' }
         }
 
-        const user = await auth().getUser(currentUser?.uid || '')
-
-        const adminApp = getAdminApp()
         const adminDb = adminApp.firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
+        const user = await auth().getUser(currentUser?.uid || '')
 
         const signupRecord: Signup = {
             name: user.displayName || "Anonymous",
@@ -236,4 +236,3 @@ export async function transferEventOwnership(eventId: string, newOwnerId: string
         return { success: false, error: 'Failed to transfer ownership' }
     }
 }
-

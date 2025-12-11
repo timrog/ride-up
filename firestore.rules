@@ -14,10 +14,18 @@ service cloud.firestore {
         && debug(request.resource.data.createdBy) == debug(request.auth.uid)
       allow update: if request.auth != null
         && hasRole("leader")
-
+      allow delete: if request.auth != null
+        && hasRole("admin")
       match /activity/private {
         allow read: if hasRole("member");
       }
+    }
+
+    match /feedback/{feedbackId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['text', 'userId', 'userName', 'userEmail', 'createdAt']);
+      allow read: if hasRole("admin");
     }
   }
 }

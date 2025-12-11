@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         const stream = new ReadableStream({
             start(controller) {
                 const encoder = new TextEncoder()
-                const iterator = generateICalStream(events, config, "https://calendars.vcgh.co.uk")
+                const iterator = generateICalStream(events, config, "https://calendar.vcgh.co.uk")
 
                 let result = iterator.next()
                 while (!result.done) {
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
             status: 200,
             headers: {
                 'Content-Type': 'text/calendar; charset=utf-8',
-                'Cache-Control': 'public, max-age=3600',
+                'Cache-Control': 'public, max-age=180',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET',
                 'Access-Control-Allow-Headers': 'Content-Type'

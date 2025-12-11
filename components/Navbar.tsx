@@ -1,6 +1,6 @@
 'use client'
 import { Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle } from "@heroui/navbar"
-import { XMarkIcon } from "@heroicons/react/24/outline"
+import { ChatBubbleLeftEllipsisIcon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Button, Link } from "@heroui/react"
 import WithAuth from "app/withAuthClient"
 import { Suspense } from "react"
@@ -23,7 +23,12 @@ export default function () {
       <NavbarBrand>
         <Link href="https://vcgh.co.uk"><img src="https://vcgh.co.uk/wp-content/uploads/2025/04/VCGH-white.svg" alt="Logo" width="250" /></Link>
       </NavbarBrand>
+      <NavbarContent justify="center">
+      </NavbarContent>
       <NavbarContent justify="end">
+        <Button as={Link} href="/about" isIconOnly title="Help and feedback" color="default" className="rounded-full mr-4">
+          <ChatBubbleLeftEllipsisIcon height={24} />
+        </Button>
         <Suspense fallback={<div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />}>
           <FirebaseAuth />
         </Suspense>

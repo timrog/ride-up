@@ -29,7 +29,7 @@ export default function FirebaseAuth() {
         )
     }
 
-    return (
+    return <>
         <Dropdown placement="bottom-end">
             <DropdownTrigger>
                 <Avatar
@@ -39,14 +39,18 @@ export default function FirebaseAuth() {
                     name={initials}
                     size="lg"
                     src={user?.photoURL || undefined}
+                    isBordered={true}
                 />
             </DropdownTrigger>
             <DropdownMenu aria-label="Profile Actions" variant="flat">
+                <DropdownItem key="list" href="/">Upcoming rides</DropdownItem>
                 {!user && <DropdownItem key="login" href={`/user?returnUrl=${encodeURIComponent(currentPath)}`}>Sign in</DropdownItem> || null}
-                {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
+                {user && <DropdownItem key="user" href={`/user`}>Your profile</DropdownItem> || null}
                 {roles?.includes('leader') ?
                     <DropdownItem key="postRide" color="primary" href="/create">Post a ride</DropdownItem> : null}
+                <DropdownItem key="help" href="/about">Help</DropdownItem>
+                {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
             </DropdownMenu>
-        </Dropdown >)
-
+        </Dropdown>
+    </>
 }

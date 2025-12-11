@@ -13,7 +13,6 @@ export default function SignInContent() {
     const auth = getAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
-
     const returnUrl = searchParams.get('returnUrl') || '/'
 
     useEffect(() => {

@@ -1,4 +1,5 @@
 
+'use server'
 import { collection, query, getDocs, Timestamp, where, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import React from 'react'
@@ -6,13 +7,14 @@ import { CalendarEvent } from './types'
 import { } from "./installPrompt"
 import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
 import { toFormattedDate, toFormattedTime } from "./format"
-import { ClockIcon, MapPinIcon, PlusIcon } from "@heroicons/react/24/outline"
+import { ClockIcon, MapPinIcon } from "@heroicons/react/24/outline"
 import { Chip } from "@heroui/chip"
 import { IconInline } from "@/components/IconLine"
 import TagFilter from "./TagFilter"
 import { Button } from "@heroui/button"
 import Link from "next/link"
 import WithAuth from "./withAuthClient"
+import CalendarButtons from "./CalendarButtons"
 
 async function getUpcomingEvents(filterTags: string[]) {
     const eventsRef = collection(db, 'events')
@@ -58,7 +60,7 @@ export default async function EventList({
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="mb-8 flex gap-3 justify-center">
+            <div className="mb-8 flex gap-3 flex-wrap justify-center">
                 <h1 className="m-0 flex-grow text-left">Upcoming Events</h1>
                 <WithAuth role="leader">
                     <Button as={Link} href="/create" color="secondary">Post a ride</Button>
