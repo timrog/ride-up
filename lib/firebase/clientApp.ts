@@ -29,6 +29,4 @@ if (useEmulator) {
     } catch (e) {
         // ignore if already connected
     }
-} else {
-    console.log('🚀 Using live Firebase (client)')
 }
