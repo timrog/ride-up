@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Nunito, Big_Shoulders_Display } from "next/font/google"
+import { Nunito, Big_Shoulders } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
 import Navbar from "@/components/Navbar"
@@ -10,7 +10,7 @@ const sansFont = Nunito({
   subsets: ["latin"],
 })
 
-const headingFont = Big_Shoulders_Display({
+const headingFont = Big_Shoulders({
   variable: "--font-heading",
   weight: "800",
   subsets: ["latin"]
