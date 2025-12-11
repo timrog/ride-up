@@ -1,6 +1,6 @@
 'use client'
 import { Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle } from "@heroui/navbar"
-import { ChatBubbleLeftEllipsisIcon, XMarkIcon } from "@heroicons/react/24/outline"
+import { ChatBubbleLeftEllipsisIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Button, Link } from "@heroui/react"
 import WithAuth from "app/withAuthClient"
 import { Suspense } from "react"
@@ -26,7 +26,12 @@ export default function () {
       <NavbarContent justify="center">
       </NavbarContent>
       <NavbarContent justify="end">
-        <Button as={Link} href="/about" isIconOnly title="Help and feedback" color="default" className="rounded-full mr-4">
+        <WithAuth role="admin">
+          <Button as={Link} href="/create" isIconOnly title="Post a ride" color="secondary" className="rounded-full">
+            <PlusIcon height={24} />
+          </Button>
+        </WithAuth>
+        <Button as={Link} href="/about" isIconOnly title="Help and feedback" color="default" className="rounded-full">
           <ChatBubbleLeftEllipsisIcon height={24} />
         </Button>
         <Suspense fallback={<div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />}>

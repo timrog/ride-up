@@ -17,7 +17,7 @@ const headingFont = Big_Shoulders({
 })
 
 export const metadata: Metadata = {
-  title: "VCGH Events",
+  title: "VCGH Signups",
   description: "VCGH event listing and sign-up",
   icons: {
     icon: "/icon.png",

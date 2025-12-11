@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
         const config: ICalConfig = {
             prodId: 'VCGH',
-            calName: 'VCGH Events',
+            calName: 'VCGH Signups',
             calDesc: 'Cycling events from VCGH',
             timezone: 'Europe/London',
             refreshInterval: 'PT1H',
