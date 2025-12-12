@@ -161,5 +161,4 @@ certificates
 .firebase/
 firebase-export-*
 service-account-key.json
-apphosting.yaml
 emulator-data
