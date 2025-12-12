@@ -12,7 +12,7 @@ function toCalendarEventId(firestoreId: string): string {
     return hex.toLowerCase().substring(0, 63)
 }
 
-export const syncToCalendar = onDocumentWritten({
+export const SendEventsToCalendar = onDocumentWritten({
     document: "events/{eventId}",
     secrets: [calendarId],
     region

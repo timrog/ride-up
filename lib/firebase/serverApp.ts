@@ -16,6 +16,7 @@ import { ServiceAccount } from 'firebase-admin/app'
 // Returns an authenticated client SDK instance for use in Server Side Rendering
 // and Static Site Generation
 export async function getAuthenticatedAppForUser() {
+
   const authIdToken = (await cookies()).get("__session")?.value
 
   console.log("Getting authenticated Firebase Server App for user with idToken:", authIdToken?.substring(0, 20))

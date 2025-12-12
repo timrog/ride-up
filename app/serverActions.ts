@@ -1,9 +1,9 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { doc, getDoc, addDoc, collection, Timestamp, updateDoc, deleteDoc } from 'firebase/firestore'
+import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore'
 import { CalendarEvent, Signup, Comment } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
-import admin, { auth } from 'firebase-admin'
+import admin from 'firebase-admin'
 
 type DuplicateMode = 'single' | 'weekly'
 
@@ -17,6 +17,18 @@ function addDays(base: Date, days: number) {
     const d = new Date(base.getTime())
     d.setDate(d.getDate() + days)
     return d
+}
+
+async function initAuth() {
+    const adminDb = getAdminApp().firestore()
+    const auth = getAdminApp().auth()
+    const { currentUser } = await getAuthenticatedAppForUser()
+
+    if (!currentUser) {
+        throw new Error('User not authenticated')
+    }
+
+    return { auth, adminDb, currentUser }
 }
 
 export async function duplicateEvent(params: DuplicateParams) {
@@ -74,13 +86,8 @@ export async function duplicateEvent(params: DuplicateParams) {
 
 export async function addComment(eventId: string, commentText: string) {
     try {
-        const { currentUser } = await getAuthenticatedAppForUser()
+        const { adminDb, currentUser } = await initAuth()
 
-        if (!currentUser) {
-            return { success: false, error: 'User not authenticated' }
-        }
-
-        const adminDb = getAdminApp().firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
         if (commentText.trim() === '/resetclaims') {
@@ -130,17 +137,10 @@ export async function addComment(eventId: string, commentText: string) {
 
 export async function addSignup(eventId: string) {
     try {
-        const adminApp = getAdminApp()
+        const { adminDb, currentUser, auth } = await initAuth()
 
-        const { currentUser } = await getAuthenticatedAppForUser()
-
-        if (!currentUser) {
-            return { success: false, error: 'User not authenticated' }
-        }
-
-        const adminDb = adminApp.firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
-        const user = await auth().getUser(currentUser?.uid || '')
+        const user = await auth.getUser(currentUser?.uid || '')
 
         const signupRecord: Signup = {
             name: user.displayName || "Anonymous",
@@ -151,9 +151,11 @@ export async function addSignup(eventId: string) {
         }
 
         try {
+            console.info("Adding signup for user", user.uid, "to event", eventId)
             await activityRef.update({
                 [`signups.${user.uid}`]: signupRecord
             })
+            console.info("Adding signup for user", user.uid, "to event", eventId)
         } catch (error: any) {
             if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
                 await activityRef.set({
@@ -176,13 +178,8 @@ export async function addSignup(eventId: string) {
 
 export async function removeSignup(eventId: string) {
     try {
-        const { currentUser } = await getAuthenticatedAppForUser()
+        const { adminDb, currentUser } = await initAuth()
 
-        if (!currentUser) {
-            return { success: false, error: 'User not authenticated' }
-        }
-
-        const adminDb = getAdminApp().firestore()
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
         await activityRef.update({

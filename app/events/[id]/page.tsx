@@ -37,7 +37,7 @@ const EventPage = async ({
         <div className="md:grid md:grid-cols-2 md:gap-8"
             style={{ gridTemplateColumns: '1fr 2fr' }}>
             <div>
-                <Link href="/"><IconLine icon={ChevronLeftIcon}>All events</IconLine></Link>
+                <Link href="/"><IconLine icon={ChevronLeftIcon}>Back to all events</IconLine></Link>
 
                 <h1>{event.title}</h1>
                 {event.isCancelled && (<Alert color="danger">
