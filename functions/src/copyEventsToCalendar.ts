@@ -1,10 +1,10 @@
 import * as logger from "firebase-functions/logger"
 import { onDocumentWritten } from "firebase-functions/v2/firestore"
-import { google } from 'googleapis'
+import { calendar_v3, google } from 'googleapis'
 import { defineSecret } from "firebase-functions/params"
 import { CalendarEvent } from "../../app/types"
 const calendarId = defineSecret('GOOGLE_CALENDAR_ID')
-const region = 'europe-west2'
+const region = 'europe-north1'
 
 function toCalendarEventId(firestoreId: string): string {
     // Convert to hex then to base32hex (RFC 4648)
@@ -12,7 +12,7 @@ function toCalendarEventId(firestoreId: string): string {
     return hex.toLowerCase().substring(0, 63)
 }
 
-export const SendEventsToCalendar = onDocumentWritten({
+export const CopyEventsToCalendar = onDocumentWritten({
     document: "events/{eventId}",
     secrets: [calendarId],
     region
@@ -47,11 +47,15 @@ export const SendEventsToCalendar = onDocumentWritten({
 
             let description = afterData.description
             if (afterData.routeLink) {
-                description += `\n\nRoute: ${afterData.routeLink}`
+                description += `\n\n<a href="${afterData.routeLink}">Route</a>`
             }
 
-            const eventData = {
-                summary: afterData.title,
+            if (afterData.routeLink) {
+                description += `\n\n<a href="https://calendar.vcgh.co.uk/events/${firestoreEventId}">Sign up here</a>`
+            }
+
+            const eventData: calendar_v3.Schema$Event = {
+                summary: `${afterData.title}${afterData.isCancelled ? ' (CANCELLED)' : ''}`,
                 location: afterData.location,
                 description: description,
                 start: {
@@ -62,7 +66,8 @@ export const SendEventsToCalendar = onDocumentWritten({
                     dateTime: endTime.toISOString(),
                     timeZone: 'Europe/London',
                 },
-                status: afterData.isCancelled ? 'cancelled' : 'confirmed'
+                htmlLink: `https://calendar.vcgh.co.uk/event/${firestoreEventId}`,
+                status: 'confirmed'
             }
 
             // Try to update first, create if doesn't exist

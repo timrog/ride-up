@@ -1,6 +1,6 @@
 'use client'
 import React, { useState } from 'react'
-import { addToast, Button, Input, toast } from "@heroui/react"
+import { addToast, Button, Input } from "@heroui/react"
 import { getAuth, updateProfile } from "firebase/auth"
 import { useRoles } from "app/clientAuth"
 
@@ -35,8 +35,10 @@ export default function UserProfile() {
 
             <div className="mb-4">
                 <Input
-                    label="Display Name"
+                    label="Full name"
+                    description="This name will be displayed when you sign up for rides."
                     value={displayName}
+                    pattern="^.+\s.+$"
                     onChange={(e) => setDisplayName(e.target.value)}
                 />
             </div>

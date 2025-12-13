@@ -27,7 +27,8 @@ export interface Signup {
     name: string
     userId: string
     avatarUrl: string | null
-    phone: string | null
+    phone: string | null,
+    membership: string | null
 }
 
 export interface Comment {

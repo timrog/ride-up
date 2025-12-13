@@ -7,25 +7,15 @@ import { generateICalStream, ICalConfig } from '../ical-utils'
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
-        const includeUpcoming = searchParams.get('upcoming') !== 'false'
-        const includePast = searchParams.get('past') === 'true'
 
-        let q
-        if (includeUpcoming && !includePast) {
-            q = query(
-                collection(db, 'events'),
-                where('date', '>', Timestamp.fromDate(new Date())),
-                orderBy('date', 'asc')
-            )
-        } else if (!includeUpcoming && includePast) {
-            q = query(
-                collection(db, 'events'),
-                where('date', '<=', Timestamp.fromDate(new Date())),
-                orderBy('date', 'desc')
-            )
-        } else {
-            q = query(collection(db, 'events'), orderBy('date', 'asc'))
-        }
+        const oneMonthAgo = new Date()
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+
+        const q = query(
+            collection(db, 'events'),
+            where('date', '>', Timestamp.fromDate(oneMonthAgo)),
+            orderBy('date', 'asc')
+        )
 
         const querySnapshot = await getDocs(q)
         const events = querySnapshot.docs.map((doc) => ({

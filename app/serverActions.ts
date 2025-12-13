@@ -140,14 +140,15 @@ export async function addSignup(eventId: string) {
         const { adminDb, currentUser, auth } = await initAuth()
 
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
-        const user = await auth.getUser(currentUser?.uid || '')
+        const user = await auth.getUser(currentUser.uid)
 
         const signupRecord: Signup = {
             name: user.displayName || "Anonymous",
             createdAt: admin.firestore.Timestamp.now() as Timestamp,
-            phone: user.phoneNumber || null,
+            phone: user.customClaims?.phone || null,
             avatarUrl: user.photoURL || null,
-            userId: user.uid
+            userId: user.uid,
+            membership: user.customClaims?.membership || null
         }
 
         try {

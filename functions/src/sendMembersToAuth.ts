@@ -41,10 +41,11 @@ export const SendMembersToAuth = onMessagePublished({
     await Promise.all([...keys].map(async (key) => {
         let existing = existingUsers.get(key)
         let incoming = newUsers.get(key)
+        let phoneNumber: string | null = null
 
         if (incoming) {
             const displayName = `${incoming["First name"]} ${incoming["Last name"]}`.trim()
-            const phoneNumber = incoming["Members directory"]?.toLowerCase() === 'yes' && incoming["Mobile number"] &&
+            phoneNumber = incoming["Members directory"]?.toLowerCase() === 'yes' && incoming["Mobile number"] &&
                 formatE164PhoneNumber(incoming["Mobile number"]) || null
 
             const photoURL = existing?.photoURL
@@ -53,8 +54,7 @@ export const SendMembersToAuth = onMessagePublished({
             if (!existing) {
                 existing = await auth.createUser({
                     email: incoming.Email,
-                    displayName,
-                    phoneNumber
+                    displayName
                 })
                 created++
             } else {
@@ -98,12 +98,14 @@ export const SendMembersToAuth = onMessagePublished({
 
         const claims = {
             roles: [...roles],
-            membership: incoming?.Membership || 'none'
+            membership: incoming?.Membership || 'none',
+            phone: phoneNumber
         }
 
         try {
             if (existing && (existing.customClaims?.membership !== claims.membership
-                || existing.customClaims?.roles?.join() !== claims.roles.join())) {
+                || existing.customClaims?.roles?.join() !== claims.roles.join()
+                || existing.customClaims?.phone !== claims.phone)) {
                 await auth.setCustomUserClaims(existing.uid, claims)
                 updated++
             }

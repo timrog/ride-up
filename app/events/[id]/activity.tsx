@@ -6,7 +6,7 @@ import { getAuth } from "firebase/auth"
 import React, { KeyboardEvent, useEffect, useState } from 'react'
 import { EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
-import { Avatar, Button, Card, CardBody, CardHeader, PressEvent, Textarea } from "@heroui/react"
+import { Avatar, Button, Card, CardBody, CardHeader, Chip, PressEvent, Textarea } from "@heroui/react"
 import { PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
 import { addComment } from "app/serverActions"
 import WithAuth from "app/withAuthClient"
@@ -86,16 +86,24 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
 
             <WithAuth role="member">
                 <ul className="text-lg">
-                    {Object.entries(activity.signups).map(([userId, signup]) =>
-                        <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
-                            <Avatar src={signup.avatarUrl || undefined} />
-                            {signup.name}
-                            {signup.phone &&
-                                <Link href={`https://wa.me/${signup.phone.replace(/\D/g, '')}`} target="_blank">
-                                    <img src="/whatsapp.png" alt="WhatsApp" title={signup.phone} width={24} />
-                                </Link>}
-                        </li>
-                    )}
+                    {
+                        Object.entries(activity.signups)
+                            .sort(([, a], [, b]) => a.createdAt.toMillis() - b.createdAt.toMillis())
+                            .map(([userId, signup]) =>
+                                <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
+                                    <Avatar src={signup.avatarUrl || undefined} />
+                                    {signup.name}
+                                    {signup.membership && signup.membership.toLowerCase().indexOf('david') >= 0 &&
+                                        <Chip size="sm" color="warning" className="ml-1">
+                                            Trial
+                                        </Chip>
+                                    }
+                                    {signup.phone &&
+                                        <Link href={`https://wa.me/${signup.phone.replace(/\D/g, '')}`} target="_blank">
+                                            <img src="/whatsapp.png" alt="WhatsApp" title={signup.phone} width={24} />
+                                        </Link>}
+                                </li>
+                            )}
                 </ul>
             </WithAuth>
 
