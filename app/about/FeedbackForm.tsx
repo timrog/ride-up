@@ -5,7 +5,6 @@ import { useEffect, useState } from "react"
 import { addDoc, collection, Timestamp, query, orderBy, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase/initFirebase"
 import { useRoles } from "app/clientAuth"
-import WithAuth from "app/withAuthClient"
 import { toFormattedDate, toFormattedTime } from "app/format"
 
 interface FeedbackItem {

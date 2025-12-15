@@ -50,9 +50,7 @@ export const CopyEventsToCalendar = onDocumentWritten({
                 description += `\n\n<a href="${afterData.routeLink}">Route</a>`
             }
 
-            if (afterData.routeLink) {
-                description += `\n\n<a href="https://calendar.vcgh.co.uk/events/${firestoreEventId}">Sign up here</a>`
-            }
+            description += `\n\n<a href="https://calendar.vcgh.co.uk/events/${firestoreEventId}">Sign up here</a>`
 
             const eventData: calendar_v3.Schema$Event = {
                 summary: `${afterData.title}${afterData.isCancelled ? ' (CANCELLED)' : ''}`,
@@ -66,7 +64,7 @@ export const CopyEventsToCalendar = onDocumentWritten({
                     dateTime: endTime.toISOString(),
                     timeZone: 'Europe/London',
                 },
-                htmlLink: `https://calendar.vcgh.co.uk/event/${firestoreEventId}`,
+                htmlLink: `https://calendar.vcgh.co.uk/events/${firestoreEventId}`,
                 status: 'confirmed'
             }
 

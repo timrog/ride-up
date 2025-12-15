@@ -90,18 +90,6 @@ export async function addComment(eventId: string, commentText: string) {
 
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
-        if (commentText.trim() === '/resetclaims') {
-            await getAdminApp().auth().setCustomUserClaims(currentUser.uid, { roles: [] })
-            return { success: true }
-        }
-        if (commentText.startsWith('/lookup ')) {
-            const lookupUid = commentText.substring(8).trim()
-            const userRecord = await getAdminApp().auth().getUser(lookupUid)
-            console.log(lookupUid, userRecord)
-            return { success: true }
-        }
-
-
         const commentRecord: Comment = {
             createdAt: admin.firestore.Timestamp.now() as Timestamp,
             name: currentUser.displayName || "Anonymous",
