@@ -64,7 +64,7 @@ export default function EventForm({ event, onSubmit }
     }
 
     return (
-        <I18nProvider locale="en-GB">
+        <I18nProvider>
             <form onSubmit={handleSubmit} className="space-y-6 mx-auto max-w-2xl">
 
                 <Input
