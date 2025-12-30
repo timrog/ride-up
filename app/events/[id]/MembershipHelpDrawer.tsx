@@ -57,6 +57,7 @@ export default function MembershipHelpDrawer({ isOpen, onOpenChange }: Membershi
                 {state == 'start' && <>
                     <DrawerBody>
                         <p>We can't find a valid membership for you. Either you haven't joined, your membership has lapsed, or the email address you've signed in with is not the one registered with the club. In the latter case, please sign out and sign back in again with the correct address. </p>
+                        <p>You are signed in as <strong>{getAuth().currentUser?.email}</strong>.</p>
                         <p><Link as={Link} target="_blank" href="https://membermojo.co.uk/vcgh/yourmembership">Manage my membership</Link></p>
                         <p>If you've recently joined or renewed in the last few hours, we might not have caught up.</p>
                         <p>Have you joined or renewed in the last 24 hours?</p>

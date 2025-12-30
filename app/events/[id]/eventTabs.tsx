@@ -47,7 +47,7 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
     const tabs = [
         { key: 'details', icon: PencilIcon, title: 'Details', content: details, bg: 'transparent' },
         ...(routeLink ? [{ key: 'route', icon: MapIcon, title: 'Route', content: <Route />, bg: 'stone-200' }] : []),
-        { key: 'signups', icon: ChatBubbleLeftIcon, title: 'Sign Up', content: <Signups />, bg: 'gray-100' }
+        { key: 'signups', icon: ChatBubbleLeftIcon, title: 'Sign-ups', content: <Signups />, bg: 'gray-100' }
     ]
 
     return (

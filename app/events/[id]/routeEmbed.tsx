@@ -1,5 +1,7 @@
 'use client'
 
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline"
+import { Button, Link } from "@heroui/react"
 import { useEffect } from "react"
 
 export default function ({ link }) {
@@ -21,6 +23,13 @@ export default function ({ link }) {
     const rwgpsMatch = link
         && link.match(/ridewithgps\.com\/routes\/(\d+)/),
         rwgpsRouteId = rwgpsMatch?.length && rwgpsMatch[1]
+
+    const downloadLink = stravaMatch
+        ? `https://www.strava.com/routes/${stravaRouteId}/export_gpx`
+        : rwgpsMatch
+            ? `https://ridewithgps.com/routes/${rwgpsRouteId}.gpx?sub_format=track`
+            : undefined
+
     return <div>
         {stravaMatch &&
             <div className="strava-embed-placeholder"
@@ -35,5 +44,9 @@ export default function ({ link }) {
             <iframe src={`https://ridewithgps.com/embeds?type=route&id=${rwgpsRouteId}&metricUnits=true&sampleGraph=true`}
                 style={{ width: "1px", minWidth: "100%", height: "700px", border: "none" }}
                 scrolling="no"></iframe>}
+        {downloadLink &&
+            <div className="mt-4">
+                <Button as={Link} href={downloadLink} color="secondary"><ArrowDownTrayIcon /> GPX</Button>
+            </div>}
     </div>
 }

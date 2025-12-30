@@ -76,7 +76,7 @@ export function* generateICalStream(
             description += `\\n\\nRoute: ${event.routeLink}`
         }
 
-        description += `\\n\\n<a href="${baseUrl}/events/${event.id}">Sign up here</a>`
+        description += `\\n\\n<a href="${baseUrl}/events/${event.id}">Full details and sign up</a>`
 
         const eventLines = [
             'BEGIN:VEVENT',

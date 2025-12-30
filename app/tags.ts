@@ -1,6 +1,6 @@
 export const allTags = [
     'Intro', 'Social', 'Social Mod', 'Mod', 'Mod+', 'Pacy', 'Race',
-    'Women-only', 'Triathlon', 'Gravel', 'MTB', 'Social event',
+    'Women-only', 'Triathlon', 'Gravel', 'MTB', 'Social event', 'Indoor exercise',
     'Meeting', 'Swim', 'Run', 'Jets']
 
 export const defaultLocations = [

@@ -50,7 +50,7 @@ export const CopyEventsToCalendar = onDocumentWritten({
                 description += `\n\n<a href="${afterData.routeLink}">Route</a>`
             }
 
-            description += `\n\n<a href="https://calendar.vcgh.co.uk/events/${firestoreEventId}">Sign up here</a>`
+            description += `\n\n<a href="https://calendar.vcgh.co.uk/events/${firestoreEventId}">Full details and sign-up</a>`
 
             const eventData: calendar_v3.Schema$Event = {
                 summary: `${afterData.title}${afterData.isCancelled ? ' (CANCELLED)' : ''}`,
