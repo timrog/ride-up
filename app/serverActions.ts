@@ -86,15 +86,16 @@ export async function duplicateEvent(params: DuplicateParams) {
 
 export async function addComment(eventId: string, commentText: string) {
     try {
-        const { adminDb, currentUser } = await initAuth()
+        const { adminDb, currentUser, auth } = await initAuth()
 
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
+        const user = await auth.getUser(currentUser.uid)
         const commentRecord: Comment = {
             createdAt: admin.firestore.Timestamp.now() as Timestamp,
-            name: currentUser.displayName || "Anonymous",
-            avatarUrl: currentUser.photoURL,
-            userId: currentUser.uid,
+            name: user.displayName || "Anonymous",
+            avatarUrl: user.photoURL || null,
+            userId: user.uid,
             text: commentText
         }
 
