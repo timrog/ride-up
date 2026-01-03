@@ -64,6 +64,7 @@ export const CopyEventsToCalendar = onDocumentWritten({
                     dateTime: endTime.toISOString(),
                     timeZone: 'Europe/London',
                 },
+                organizer: { displayName: afterData.createdByName },
                 htmlLink: `https://calendar.vcgh.co.uk/events/${firestoreEventId}`,
                 status: 'confirmed'
             }

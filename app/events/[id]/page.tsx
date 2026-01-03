@@ -55,7 +55,7 @@ const EventPage = async ({
                         <Chip key={index}>{tag}</Chip>
                     ))}
                 </div>
-                <IconLine icon={MapPinIcon}>{event.location}</IconLine>
+                <IconLine icon={MapPinIcon}><Link href={`https://www.google.com/maps/search/${encodeURIComponent(event.location)}`} target="_blank">{event.location}</Link></IconLine>
                 <IconLine icon={UserCircleIcon}>{event.createdByName}</IconLine>
                 <WithAuth role="leader" resourceOwner={event.createdBy}>
                     <EditButtons eventId={id} isCancelled={event.isCancelled} />

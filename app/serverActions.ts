@@ -32,7 +32,7 @@ async function initAuth() {
 }
 
 export async function duplicateEvent(params: DuplicateParams) {
-    const { db } = await getAuthenticatedAppForUser()
+    const { db, currentUser } = await getAuthenticatedAppForUser()
 
     console.log('Current event in duplicateEvent:', params.eventId)
     const { eventId, mode, date } = params
@@ -69,8 +69,11 @@ export async function duplicateEvent(params: DuplicateParams) {
             isCancelled: false,
             date: Timestamp.fromDate(d),
             createdAt: Timestamp.now(),
+            createdBy: currentUser?.uid!,
+            createdByName: currentUser?.displayName || 'Unknown',
             linkId: source.linkId || eventId,
         }
+
         return addDoc(collection(db, 'events'), newDoc)
     }))
 
