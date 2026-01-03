@@ -41,6 +41,7 @@ export default function EditEventPage() {
     async function handleUpdate(updatedEvent: Partial<CalendarEvent>) {
         await handleRecurring(updatedEvent, doUpdate)
         router.push(`/events/${id}`)
+        router.refresh()
     }
 
     async function doUpdate(id: string, updatedEvent: Partial<CalendarEvent>) {

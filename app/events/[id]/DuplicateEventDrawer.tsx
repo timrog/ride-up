@@ -5,7 +5,6 @@ import { duplicateEvent } from "../../serverActions"
 import { Button, RadioGroup, Radio, DatePicker, Spinner, addToast } from "@heroui/react"
 import { Drawer, DrawerBody, DrawerContent, DrawerFooter, DrawerHeader } from "@heroui/drawer"
 import { today, getLocalTimeZone, DateValue } from "@internationalized/date"
-import { I18nProvider } from "@react-aria/i18n"
 
 type DuplicateMode = "single" | "weekly"
 
@@ -84,48 +83,46 @@ export default function DuplicateEventDrawer({ eventId, isOpen, onOpenChange }: 
         >
             <DrawerContent>
                 {(onClose) => (
-                    <I18nProvider locale="en-GB">
-                        <form onSubmit={handleSubmit}>
-                            <DrawerHeader>Duplicate event</DrawerHeader>
-                            <DrawerBody>
-                                <div className="flex flex-col gap-4">
-                                    <RadioGroup
-                                        label="Duplication mode"
-                                        orientation="horizontal"
-                                        value={form.mode}
-                                        onValueChange={val => handleModeChange(val as DuplicateMode)}
-                                    >
-                                        <Radio value="single">Single date</Radio>
-                                        <Radio value="weekly">Every week until...</Radio>
-                                    </RadioGroup>
+                    <form onSubmit={handleSubmit}>
+                        <DrawerHeader>Duplicate event</DrawerHeader>
+                        <DrawerBody>
+                            <div className="flex flex-col gap-4">
+                                <RadioGroup
+                                    label="Duplication mode"
+                                    orientation="horizontal"
+                                    value={form.mode}
+                                    onValueChange={val => handleModeChange(val as DuplicateMode)}
+                                >
+                                    <Radio value="single">Single date</Radio>
+                                    <Radio value="weekly">Every week until...</Radio>
+                                </RadioGroup>
 
-                                    <DatePicker
-                                        label="Target date"
-                                        aria-label="Target date"
-                                        value={form.targetDate as any}
-                                        minValue={minDate}
-                                        maxValue={maxDate}
-                                        onChange={handleTargetDateChange}
-                                        isRequired
-                                    />
+                                <DatePicker
+                                    label="Target date"
+                                    aria-label="Target date"
+                                    value={form.targetDate as any}
+                                    minValue={minDate}
+                                    maxValue={maxDate}
+                                    onChange={handleTargetDateChange}
+                                    isRequired
+                                />
 
-                                    {form.error && <p className="text-danger text-sm">{form.error}</p>}
-                                    {form.success && <p className="text-success text-sm">{form.success}</p>}
-                                </div>
-                            </DrawerBody>
-                            <DrawerFooter>
-                                <Button onPress={onClose}>
-                                    Cancel
-                                </Button>
-                                <Button type="submit" color="primary" isDisabled={submitting}>
-                                    {submitting && <Spinner size="sm" className="mr-1" />}
-                                    Duplicate
-                                </Button>
-                            </DrawerFooter>
-                        </form>
-                    </I18nProvider>
+                                {form.error && <p className="text-danger text-sm">{form.error}</p>}
+                                {form.success && <p className="text-success text-sm">{form.success}</p>}
+                            </div>
+                        </DrawerBody>
+                        <DrawerFooter>
+                            <Button onPress={onClose}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" color="primary" isDisabled={submitting}>
+                                {submitting && <Spinner size="sm" className="mr-1" />}
+                                Duplicate
+                            </Button>
+                        </DrawerFooter>
+                    </form>
                 )}
             </DrawerContent>
-        </Drawer>
+        </Drawer >
     )
 }

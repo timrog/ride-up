@@ -6,7 +6,6 @@ import React, { ChangeEvent, useState } from "react"
 import SelectableTags from "@/components/SelectableTags"
 
 import { CalendarDate, DateValue, fromDate, getLocalTimeZone, Time, toCalendarDate, toCalendarDateTime, today, toTime } from "@internationalized/date"
-import { I18nProvider } from "@react-aria/i18n"
 import { defaultLocations } from "app/tags"
 
 type FormDataType = {
@@ -64,101 +63,99 @@ export default function EventForm({ event, onSubmit }
     }
 
     return (
-        <I18nProvider>
-            <form onSubmit={handleSubmit} className="space-y-6 mx-auto max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-6 mx-auto max-w-2xl">
 
-                <Input
-                    autoFocus
-                    label="Event Title"
+            <Input
+                autoFocus
+                label="Event Title"
+                size="lg"
+                placeholder="e.g. Saturday Mod Ride"
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                isRequired
+            />
+
+            <Autocomplete
+                allowsCustomValue
+                label="Meeting point"
+                size="lg"
+                placeholder={`e.g. ${defaultLocations[0]}`}
+                inputValue={formData.location}
+                defaultItems={defaultLocations.map(loc => ({ loc }))}
+                onInputChange={handleValueChange('location')}
+                isRequired
+            >
+                {(item) => <AutocompleteItem key={item.loc}>{item.loc}</AutocompleteItem>}
+            </Autocomplete>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                <DatePicker label="Date" size="lg" isRequired value={formData.date}
+                    onChange={d => setFormData(prevState => ({
+                        ...prevState,
+                        date: d as CalendarDate
+                    }))}
+                    minValue={today(getLocalTimeZone())} />
+                <TimeInput label="Start time" isRequired value={formData.time}
                     size="lg"
-                    placeholder="e.g. Saturday Mod Ride"
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    isRequired
+                    onChange={t => setFormData(prevState => ({
+                        ...prevState,
+                        time: t as Time
+                    }))}
                 />
 
-                <Autocomplete
-                    allowsCustomValue
-                    label="Meeting point"
+                <Select
+                    name="duration"
                     size="lg"
-                    placeholder={`e.g. ${defaultLocations[0]}`}
-                    inputValue={formData.location}
-                    defaultItems={defaultLocations.map(loc => ({ loc }))}
-                    onInputChange={handleValueChange('location')}
-                    isRequired
+                    label="Duration"
+                    defaultSelectedKeys={[formData.duration]}
+                    onChange={e => setFormData(prevState => ({ ...prevState, duration: e.target.value }))}
+                    required
                 >
-                    {(item) => <AutocompleteItem key={item.loc}>{item.loc}</AutocompleteItem>}
-                </Autocomplete>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {Array.from({ length: 16 }, (_, i) => (i + 1) * 30).map(minutes => (
+                        <SelectItem key={minutes}>
+                            {`${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}`.trim()}
+                        </SelectItem>
+                    ))}
+                </Select>
+            </div>
 
-                    <DatePicker label="Date" size="lg" isRequired value={formData.date}
-                        onChange={d => setFormData(prevState => ({
-                            ...prevState,
-                            date: d as CalendarDate
-                        }))}
-                        minValue={today(getLocalTimeZone())} />
-                    <TimeInput label="Start time" isRequired value={formData.time}
-                        size="lg"
-                        onChange={t => setFormData(prevState => ({
-                            ...prevState,
-                            time: t as Time
-                        }))}
-                    />
+            <Textarea
+                label="Description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                minRows={3}
+                size="lg"
+                isRequired
+            />
 
-                    <Select
-                        name="duration"
-                        size="lg"
-                        label="Duration"
-                        defaultSelectedKeys={[formData.duration]}
-                        onChange={e => setFormData(prevState => ({ ...prevState, duration: e.target.value }))}
-                        required
-                    >
-                        {Array.from({ length: 16 }, (_, i) => (i + 1) * 30).map(minutes => (
-                            <SelectItem key={minutes}>
-                                {`${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}`.trim()}
-                            </SelectItem>
-                        ))}
-                    </Select>
-                </div>
+            <Input
+                label="Link to the route"
+                placeholder="Strava or RideWithGPS route link"
+                size="lg"
+                name="routeLink"
+                type="url"
+                pattern={`https\://(www\.)?(strava\.com/routes/\\d{6,}|ridewithgps.com/routes/\\d{6,})`}
+                value={formData.routeLink}
+                onChange={handleChange}
+                errorMessage="Please enter a valid Strava or RideWithGPS route link"
+            />
 
-                <Textarea
-                    label="Description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    minRows={3}
-                    size="lg"
+            <div className="flex flex-col gap-1 w-full">
+                <SelectableTags
+                    value={formData.tags}
+                    onChange={handleValueChange('tags')}
+                    label="Select event type"
                     isRequired
+                    errorMessage="Please select at least one"
                 />
+            </div>
 
-                <Input
-                    label="Link to the route"
-                    placeholder="Strava or RideWithGPS route link"
-                    size="lg"
-                    name="routeLink"
-                    type="url"
-                    pattern={`https\://(www\.)?(strava\.com/routes/\\d{6,}|ridewithgps.com/routes/\\d{6,})`}
-                    value={formData.routeLink}
-                    onChange={handleChange}
-                    errorMessage="Please enter a valid Strava or RideWithGPS route link"
-                />
-
-                <div className="flex flex-col gap-1 w-full">
-                    <SelectableTags
-                        value={formData.tags}
-                        onChange={handleValueChange('tags')}
-                        label="Select event type"
-                        isRequired
-                        errorMessage="Please select at least one"
-                    />
-                </div>
-
-                <Button type="submit" color="primary">
-                    {event ? 'Save' : 'Create Event'}
-                </Button>
-            </form >
-        </I18nProvider>
+            <Button type="submit" color="primary">
+                {event ? 'Save' : 'Create Event'}
+            </Button>
+        </form >
     )
 }
