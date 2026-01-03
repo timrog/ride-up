@@ -74,6 +74,24 @@ h1,h2,h3,h4,h5,h6 {
   font-family: var(--font-heading);
 }
 
+p{
+  margin-bottom: 1rem;
+}
+
+svg, img {
+  vertical-align: top;
+  display: inline-block;
+}
+
+*:focus-visible {
+  outline-style: none;
+}
+
+@layer base {
+a { 
+  color:var(--color-secondary); 
+}
+
 h1 { 
   text-align: center;
   margin-bottom: 2rem;
@@ -97,23 +115,5 @@ h2 {
   h2 {
     font-size: 1.875rem;
   }
-}
-
-p{
-  margin-bottom: 1rem;
-}
-
-svg, img {
-  vertical-align: top;
-  display: inline-block;
-}
-
-*:focus-visible {
-  outline-style: none;
-}
-
-@layer base {
-a { 
-  color:var(--color-secondary); 
 }
 }

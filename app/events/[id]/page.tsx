@@ -12,6 +12,7 @@ import FormatHtml from "app/FormatHtml"
 import EventTabs from "./eventTabs"
 import { Chip } from "@heroui/chip"
 import Link from "next/link"
+import { Metadata } from "next"
 
 async function getEvent(id: string) {
     const eventDoc = await getDoc(doc(db, 'events', id)) as DocumentSnapshot<CalendarEvent>
@@ -33,18 +34,19 @@ const EventPage = async ({
     const isActive = event.date.toDate().getTime() > Date.now()
         && !event.isCancelled
 
-    const Details = () => (
+    const Details = () => <>
+        <Link href="/"><IconLine icon={ChevronLeftIcon}>All events</IconLine></Link>
+        <h1 className="text-left mb-3">{event.title}</h1>
+
         <div className="md:grid md:grid-cols-2 md:gap-8"
             style={{ gridTemplateColumns: '1fr 2fr' }}>
-            <div>
-                <Link href="/"><IconLine icon={ChevronLeftIcon}>Back to all events</IconLine></Link>
 
-                <h1>{event.title}</h1>
+            <div>
                 {event.isCancelled && (<Alert color="danger">
                     This event has been cancelled.
                 </Alert>)}
 
-                <h2>
+                <h2 className="mt-0 pt-0">
                     {toFormattedDate(event.date.toDate())} <span
                         className="text-gray-500">{toFormattedTime(event.date.toDate())}</span>
                 </h2>
@@ -61,7 +63,7 @@ const EventPage = async ({
             </div>
             <div><FormatHtml content={event.description} /></div>
         </div >
-    )
+    </>
 
     return (
         <div>
@@ -74,3 +76,16 @@ const EventPage = async ({
 }
 
 export default EventPage
+
+export async function generateMetadata({
+    params
+}: {
+    params: Promise<{ id: string }>
+}): Promise<Metadata> {
+    const { id } = await params
+    const event = await getEvent(id)
+
+    return {
+        title: `${event?.title} – VCGH Signups`,
+    }
+}
