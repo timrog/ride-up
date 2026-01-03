@@ -15,6 +15,21 @@ export const SendMembersToAuth = onMessagePublished({
 }, async (event) => {
     const records = decodeMembersCsv(event)
 
+    const emailGroups = new Map<string, typeof records>()
+    records.forEach(r => {
+        const email = r.Email.toLowerCase()
+        if (!emailGroups.has(email)) {
+            emailGroups.set(email, [])
+        }
+        emailGroups.get(email)!.push(r)
+    })
+
+    emailGroups.forEach((group, email) => {
+        if (group.length > 1) {
+            logger.warn(`Found ${group.length} users with email ${email}: ${group.map(r => `${r["First name"]} ${r["Last name"]}`).join(', ')}`)
+        }
+    })
+
     const newUsers = new Map(records.map(r => [r.Email.toLowerCase(), r]))
     const auth = admin.auth()
     const existingUsers = new Map<string, admin.auth.UserRecord>()
@@ -57,22 +72,6 @@ export const SendMembersToAuth = onMessagePublished({
                     displayName
                 })
                 created++
-            } else {
-                const needsUpdate =
-                    existing.displayName !== displayName ||
-                    existing.phoneNumber !== phoneNumber
-
-                if (needsUpdate) {
-                    try {
-                        await auth.updateUser(existing.uid, {
-                            displayName,
-                            phoneNumber
-                        })
-                        updated++
-                    } catch (error) {
-                        logger.error(`Error updating user ${displayName}, ${phoneNumber}`, error)
-                    }
-                }
             }
 
             if (newPhotoUrl && newPhotoUrl !== photoURL) {
@@ -96,16 +95,34 @@ export const SendMembersToAuth = onMessagePublished({
             if (incoming["Site role"]?.toLowerCase() === 'admin') roles.add('admin')
         }
 
-        const claims = {
+        const extraUsers: Array<{ displayName: string; phone: string | null }> = []
+        const duplicateRecords = emailGroups.get(key) || []
+        if (duplicateRecords.length > 1) {
+            duplicateRecords.forEach(record => {
+                if (record === incoming) return
+
+                const name = `${record["First name"]} ${record["Last name"]}`.trim()
+                const phone = record["Members directory"]?.toLowerCase() === 'yes' && record["Mobile number"] &&
+                    formatE164PhoneNumber(record["Mobile number"]) || null
+                extraUsers.push({ displayName: name, phone })
+            })
+        }
+
+        const claims: any = {
             roles: [...roles],
             membership: incoming?.Membership || 'none',
             phone: phoneNumber
         }
 
+        if (extraUsers.length > 0) {
+            claims.extraUsers = extraUsers
+        }
+
         try {
             if (existing && (existing.customClaims?.membership !== claims.membership
                 || existing.customClaims?.roles?.join() !== claims.roles.join()
-                || existing.customClaims?.phone !== claims.phone)) {
+                || existing.customClaims?.phone !== claims.phone
+                || JSON.stringify(existing.customClaims?.extraUsers) !== JSON.stringify(claims.extraUsers))) {
                 await auth.setCustomUserClaims(existing.uid, claims)
                 updated++
             }
