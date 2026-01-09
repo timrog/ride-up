@@ -121,8 +121,8 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
                                 <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
                                     <Avatar src={signup.avatarUrl || undefined} />
                                     {signup.name}
-                                    {signup.membership && signup.membership.toLowerCase().indexOf('david') >= 0 &&
-                                        <Chip size="sm" color="warning" className="ml-1">
+                                    {signup.membership && signup.membership.toLowerCase().indexOf('trial') >= 0 &&
+                                        <Chip size="sm" className="ml-1 bg-yellow-500 text-black uppercase">
                                             Trial
                                         </Chip>
                                     }
