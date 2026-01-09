@@ -24,7 +24,7 @@ export default async function AdminPage() {
                             <th className="text-left p-2">Email</th>
                             <th className="text-left p-2">Display Name</th>
                             <th className="text-left p-2">Phone</th>
-                            <th className="text-left p-2">Roles</th>
+                            <th className="text-left p-2">Claims</th>
                             <th className="text-left p-2">Created</th>
                             <th className="text-left p-2">Last Sign In</th>
                         </tr>
@@ -38,9 +38,8 @@ export default async function AdminPage() {
                                 <td className="p-2">{user.phoneNumber || '-'}</td>
                                 <td className="p-2">
                                     <code className="text-sm">
-                                        {user.customClaims?.roles ?
-                                            JSON.stringify(user.customClaims.roles) :
-                                            '-'
+                                        {
+                                            JSON.stringify(user.customClaims) 
                                         }
                                     </code>
                                 </td>

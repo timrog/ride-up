@@ -121,8 +121,7 @@ export default function SignInContent() {
                                 required
                             />)}
                         <Button type="submit">
-                            Sign in with email
-                        </Button>
+                            Sign in with email</Button>
                     </form>
                 </div>
             }

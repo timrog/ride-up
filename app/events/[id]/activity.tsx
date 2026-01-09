@@ -12,13 +12,28 @@ import { addComment } from "app/serverActions"
 import WithAuth from "app/withAuthClient"
 import Link from "next/link"
 
+interface ExtraUser {
+    displayName: string
+    phone: string | null
+}
+
 export default function Activity({ id, isActive }: { id: string, isActive: boolean }) {
     const newActivity = { signups: {}, comments: [] }
     const [activity, setActivity] = useState<EventActivity>(newActivity)
     const [comment, setComment] = useState("")
     const [commentBusy, setCommentBusy] = useState(false)
+    const [extraUsers, setExtraUsers] = useState<ExtraUser[]>([])
     const activityDoc = doc(db, 'events', id, 'activity', 'private')
     const currentUser = getAuth().currentUser
+
+    useEffect(() => {
+        if (currentUser) {
+            currentUser.getIdTokenResult().then(token => {
+                const claims = token.claims as any
+                setExtraUsers(claims.extraUsers || [])
+            })
+        }
+    }, [currentUser])
 
     async function submitComment(e: React.FormEvent | PressEvent) {
         if (!currentUser) return console.error("No user signed in")
@@ -55,7 +70,20 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
 
     const signupCount = Object.keys(activity.signups).length
     const userId = currentUser?.uid
-    const hasActiveSignup = !!(userId && activity.signups[userId])
+
+    // Build list of users (primary + extras) with their signup keys
+    const allUsers = [
+        {
+            displayName: currentUser?.displayName || 'Unknown',
+            signupKey: userId || '',
+            phone: null
+        },
+        ...extraUsers.map((extraUser, index) => ({
+            displayName: extraUser.displayName,
+            signupKey: `${userId}-${index}`,
+            phone: extraUser.phone
+        }))
+    ]
 
     function formatRelative(date: Date): string {
         const now = new Date()
@@ -107,8 +135,16 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
                 </ul>
             </WithAuth>
 
-            {isActive && <div className="my-3">
-                <SignupButton id={id} active={hasActiveSignup} />
+            {isActive && currentUser && <div className="my-3 flex flex-col gap-2">
+                {allUsers.map((user) => (
+                    <SignupButton
+                        key={user.signupKey}
+                        eventId={id}
+                        displayName={extraUsers.length ? user.displayName : undefined}
+                        signupKey={user.signupKey}
+                        active={!!activity.signups[user.signupKey]}
+                    />
+                ))}
             </div>}
         </div>
         <div>

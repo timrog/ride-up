@@ -5,15 +5,23 @@ import React, { useState } from 'react'
 import { Button, addToast } from "@heroui/react"
 import { addSignup, removeSignup } from "app/serverActions"
 
-export default function SignupButton({ id, active }: { id: string, active: boolean }) {
+interface SignupButtonProps {
+    eventId: string
+    displayName?: string
+    signupKey: string
+    active: boolean
+}
+
+export default function SignupButton({ eventId, displayName, signupKey, active }: SignupButtonProps) {
     const [isLoading, setIsLoading] = useState(false)
     const user = getAuth().currentUser
+
     if (!user) return null
 
     const handleAddSignup = async () => {
         setIsLoading(true)
         try {
-            const result = await addSignup(id)
+            const result = await addSignup(eventId, signupKey)
             if (!result.success) {
                 addToast({
                     title: "Error",
@@ -35,7 +43,7 @@ export default function SignupButton({ id, active }: { id: string, active: boole
     const handleRemoveSignup = async () => {
         setIsLoading(true)
         try {
-            const result = await removeSignup(id)
+            const result = await removeSignup(eventId, signupKey)
             if (!result.success) {
                 addToast({
                     title: "Error",
@@ -56,12 +64,11 @@ export default function SignupButton({ id, active }: { id: string, active: boole
 
     return active ? (
         <Button onPress={handleRemoveSignup} color="warning" isDisabled={isLoading}>
-            Cancel my sign-up
+            {displayName ? `Cancel ${displayName}` : 'Cancel my sign-up'}
         </Button>
     ) : (
         <Button onPress={handleAddSignup} color="primary" isDisabled={isLoading}>
-            Sign me up
+            {displayName ? `Sign up as ${displayName}` : 'Sign me up'}
         </Button>
     )
 }
-

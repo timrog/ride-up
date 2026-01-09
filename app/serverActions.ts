@@ -127,17 +127,32 @@ export async function addComment(eventId: string, commentText: string) {
     }
 }
 
-export async function addSignup(eventId: string) {
+export async function addSignup(eventId: string, signupKey: string) {
     try {
         const { adminDb, currentUser, auth } = await initAuth()
 
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
         const user = await auth.getUser(currentUser.uid)
 
+        // Parse signupKey to determine user data
+        let phone = user.customClaims?.phone || null
+        let name = user.displayName || "Anonymous"
+
+        const parts = signupKey.split('-')
+        if (parts.length > 1) {
+            // Extra user: uid-index
+            const extraUserIndex = parseInt(parts[parts.length - 1])
+            if (!isNaN(extraUserIndex) && user.customClaims?.extraUsers && extraUserIndex >= 0 && extraUserIndex < user.customClaims.extraUsers.length) {
+                const extraUser = user.customClaims.extraUsers[extraUserIndex]
+                name = extraUser.displayName
+                phone = extraUser.phone || null
+            }
+        }
+
         const signupRecord: Signup = {
-            name: user.displayName || "Anonymous",
+            name,
             createdAt: admin.firestore.Timestamp.now() as Timestamp,
-            phone: user.customClaims?.phone || null,
+            phone,
             avatarUrl: user.photoURL || null,
             userId: user.uid,
             membership: user.customClaims?.membership || null
@@ -146,14 +161,14 @@ export async function addSignup(eventId: string) {
         try {
             console.info("Adding signup for user", user.uid, "to event", eventId)
             await activityRef.update({
-                [`signups.${user.uid}`]: signupRecord
+                [`signups.${signupKey}`]: signupRecord
             })
             console.info("Adding signup for user", user.uid, "to event", eventId)
         } catch (error: any) {
             if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
                 await activityRef.set({
                     signups: {
-                        [user.uid]: signupRecord
+                        [signupKey]: signupRecord
                     },
                     comments: []
                 })
@@ -169,14 +184,14 @@ export async function addSignup(eventId: string) {
     }
 }
 
-export async function removeSignup(eventId: string) {
+export async function removeSignup(eventId: string, signupKey: string) {
     try {
-        const { adminDb, currentUser } = await initAuth()
+        const { adminDb } = await initAuth()
 
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
         await activityRef.update({
-            [`signups.${currentUser.uid}`]: admin.firestore.FieldValue.delete()
+            [`signups.${signupKey}`]: admin.firestore.FieldValue.delete()
         })
 
         return { success: true }
