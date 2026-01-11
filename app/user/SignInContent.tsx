@@ -10,6 +10,7 @@ export default function SignInContent() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [awaitingEmail, setAwaitingEmail] = useState(false)
+    const [wrongBrowser, setWrongBrowser] = useState(false)
     const auth = getAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -31,6 +32,8 @@ export default function SignInContent() {
                         console.error('Error signing in with email link:', error)
                         alert('Failed to sign in. Please try again.')
                     })
+            } else {
+                setWrongBrowser(true)
             }
         }
 
@@ -72,20 +75,52 @@ export default function SignInContent() {
         setAwaitingEmail(true)
     }
 
+    const handleCopyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(window.location.href)
+            addToast({ description: 'Link copied to clipboard!', color: 'success' })
+        } catch (error) {
+            console.error('Failed to copy link:', error)
+            addToast({ description: 'Failed to copy link', color: 'danger' })
+        }
+    }
+
     return (
         <>
             <h1 className="mt-8">
                 Sign In
             </h1>
             {
-                awaitingEmail && (
+                wrongBrowser && (
+                    <Alert color="warning" title="Sign in link opened in wrong browser">
+                        <div className="flex flex-col gap-3">
+                            <p>This sign-in link has opened in a different browser to the one where you requested it. To complete your sign-in:</p>
+                            <ol className="list-decimal list-inside space-y-2">
+                                <li>Click the button below to copy the link</li>
+                                <li>Switch to the original tab where you requested the sign-in link</li>
+                                <li>Paste the link into the address bar and press Enter</li>
+                            </ol>
+                            <Button
+                                color="warning"
+                                variant="flat"
+                                onPress={handleCopyLink}
+                                className="w-full"
+                            >
+                                Copy link to clipboard
+                            </Button>
+                        </div>
+                    </Alert>
+                )
+            }
+            {
+                awaitingEmail && !wrongBrowser && (
                     <Alert color="default">
                         A sign-in link has been sent to your email address. Please check your inbox.
                     </Alert>
                 )
             }
             {
-                !awaitingEmail &&
+                !awaitingEmail && !wrongBrowser &&
                 <div className="flex flex-col gap-4 items-stretch w-full max-w-md text-center mx-auto">
                     <p>Please sign in to continue. If you are not a member, please contact the club administrator.</p>
                     <Alert color="warning">
@@ -112,7 +147,7 @@ export default function SignInContent() {
                             onChange={(e) => setEmail(e.target.value)}
                             required
                         />
-                        {process.env.NODE_ENV === 'development' && (
+                            {process.env.NODE_ENV === 'development' && (
                             <Input
                                 type="password"
                                 name="password"

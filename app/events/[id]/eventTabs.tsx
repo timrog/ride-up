@@ -28,7 +28,7 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
 
             <WithAuth except role="member">
                 <Alert color="warning" className="mt-4">
-                    <p>You don't have an active membership. Please join or renew to sign up to this event.</p>
+                    <p>I can't find an active membership. Please join or renew to sign up to this event. Or sign out and sign in again with an email address linked to a valid membership.</p>
                     <Button color="secondary" onPress={() => setHelpOpen(true)}>Help</Button>
                 </Alert>
             </WithAuth>
