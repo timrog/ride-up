@@ -1,5 +1,5 @@
 'use client'
-
+import { Button } from "@heroui/react"
 import { useState, useEffect } from 'react'
 import { sendNotification, subscribeUser, unsubscribeUser } from './pushActions'
 
@@ -52,9 +52,12 @@ export function PushNotificationManager() {
     }
 
     async function unsubscribeFromPush() {
-        await subscription?.unsubscribe()
-        setSubscription(null)
-        await unsubscribeUser()
+        if (subscription) {
+            await subscription.unsubscribe()
+            setSubscription(null)
+            const serializedSub = JSON.parse(JSON.stringify(subscription))
+            await unsubscribeUser(serializedSub)
+        }
     }
 
     const [error, setError] = useState<string>()
@@ -71,12 +74,13 @@ export function PushNotificationManager() {
 
     return (
         <div>
-            <h3>Push Notifications</h3>
             {subscription ? (
                 <>
                     <p>You are subscribed to push notifications.</p>
-                    <button onClick={unsubscribeFromPush}>Unsubscribe</button>
-                    <button onClick={sendTestNotification}>Send Test</button>
+                    <div className="flex gap-2">
+                        <Button onPress={unsubscribeFromPush}>Unsubscribe</Button>
+                        <Button onPress={sendTestNotification}>Send Test</Button>
+                    </div>
                     {error && <div className="alert alert-danger" role="alert">
                         {error}
                     </div>}
@@ -84,7 +88,7 @@ export function PushNotificationManager() {
             ) : (
                 <>
                     <p>You are not subscribed to push notifications.</p>
-                    <button onClick={subscribeToPush}>Subscribe</button>
+                        <Button onPress={subscribeToPush}>Subscribe</Button>
                 </>)}
         </div>
     )

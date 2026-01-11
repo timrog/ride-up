@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getUser } from "app/serverAuth"
 import { getAdminApp } from '@/lib/firebase/serverApp'
+import RefreshMembershipButton from './RefreshMembershipButton'
+import { PushNotificationManager } from "app/pushNotifications"
 
 export default async function AdminPage() {
     const { roles } = await getUser()
@@ -14,7 +16,13 @@ export default async function AdminPage() {
 
     return (
         <div className="container px-4 sm:mx-auto my-16">
+            <h1>Push notifications</h1>
+            <PushNotificationManager/>
+            
             <h1>User Management</h1>
+            <div className="my-4">
+                <RefreshMembershipButton />
+            </div>
 
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse">

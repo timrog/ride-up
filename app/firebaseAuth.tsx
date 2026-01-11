@@ -50,6 +50,8 @@ export default function FirebaseAuth() {
                     <DropdownItem key="postRide" color="primary" href="/create">Post a ride</DropdownItem> : null}
                 <DropdownItem key="help" href="/about">Help</DropdownItem>
                 {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
+                {roles?.includes('admin') ?
+                    <DropdownItem key="admin" color="primary" href="/admin">Diagnostics</DropdownItem> : null}
             </DropdownMenu>
         </Dropdown>
     </>
