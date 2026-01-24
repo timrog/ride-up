@@ -37,7 +37,7 @@ export default function SignInContent() {
             }
         }
 
-        if (auth.currentUser) {
+        if (auth.currentUser && !wrongBrowser) {
             router.push(returnUrl)
         }
     }, [returnUrl, router, auth])

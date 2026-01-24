@@ -3,7 +3,6 @@ import { signOut } from "@/lib/firebase/auth"
 import { Avatar, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Spinner } from "@heroui/react"
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
-import WithAuth from "./withAuthClient"
 import { useRoles } from "./clientAuth"
 
 export default function FirebaseAuth() {
@@ -51,6 +50,8 @@ export default function FirebaseAuth() {
                 {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
                 {roles?.includes('admin') ?
                     <DropdownItem key="admin" color="primary" href="/admin">Admin diagnostics</DropdownItem> : null}
+                {roles?.includes('admin') ?
+                    <DropdownItem key="notifications" color="primary" href="/notifications">Notifications (beta)</DropdownItem> : null}
             </DropdownMenu>
         </Dropdown>
     </>

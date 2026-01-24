@@ -18,8 +18,10 @@ export interface CalendarEvent {
 }
 
 export interface EventActivity {
+    signupIds: string[]
     signups: { [userId: string]: Signup }
-    comments: Comment[]
+    comments: Comment[],
+    notificationSubscribers: NotificationSubscriber[]
 }
 
 export interface Signup {
@@ -37,4 +39,18 @@ export interface Comment {
     userId: string
     avatarUrl: string | null
     text: string
+}
+
+export interface NotificationPreferences {
+    tags: string[]
+    eventUpdates: boolean
+    activityForLeader: boolean
+    activityForSignups: boolean
+    tokens: string[]
+}
+
+export interface NotificationSubscriber {
+    userId: string
+    eventUpdates: boolean
+    activity: boolean
 }

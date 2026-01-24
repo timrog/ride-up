@@ -4,6 +4,7 @@ import { Spinner } from "@heroui/react"
 import SignInContent from './SignInContent'
 import { useRoles } from "app/clientAuth"
 import UserProfile from "./UserProfile"
+import { redirect, useRouter, useSearchParams } from "next/navigation"
 
 function SignInFallback() {
     return (
@@ -15,6 +16,14 @@ function SignInFallback() {
 
 export default function UserPage() {
     const { currentUser } = useRoles()
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    const returnUrl = searchParams.get('returnUrl')
+    if (currentUser && returnUrl) {
+        window.location.href = returnUrl
+        return null
+    }
+
     return (
         <div className="container mx-auto px-4">
             <Suspense fallback={<SignInFallback />}>

@@ -1,27 +1,20 @@
 'use server'
 
-import webpush from 'web-push'
 import { createHash } from 'crypto'
 import { doc, collection, setDoc, deleteDoc, getDocs } from 'firebase/firestore'
 import { getAuthenticatedAppForUser } from "@/lib/firebase/serverApp"
+import admin from 'firebase-admin'
 
-webpush.setVapidDetails(
-    'mailto:dev_admin@vcgh.co.uk',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-)
-
-export async function subscribeUser(sub: PushSubscription) {
+export async function subscribeUser(token: string) {
     try {
         const { currentUser, db } = await getAuthenticatedAppForUser()
         if (!currentUser) {
             return { success: false, error: 'Not authenticated' }
         }
 
-        // Create a stable hash of the endpoint to use as the document ID
-        const subscriptionId = createHash('sha256').update(sub.endpoint).digest('hex')
+        const subscriptionId = createHash('sha256').update(token).digest('hex')
         const subscriptionRef = doc(db, 'users', currentUser.uid, 'subscriptions', subscriptionId)
-        await setDoc(subscriptionRef, sub, { merge: true })
+        await setDoc(subscriptionRef, { token, createdAt: new Date() }, { merge: true })
 
         return { success: true }
     } catch (error) {
@@ -30,7 +23,7 @@ export async function subscribeUser(sub: PushSubscription) {
     }
 }
 
-export async function unsubscribeUser(sub: PushSubscription) {
+export async function unsubscribeUser(token: string) {
     try {
         const { currentUser, db } = await getAuthenticatedAppForUser()
         if (!currentUser) {
@@ -38,7 +31,7 @@ export async function unsubscribeUser(sub: PushSubscription) {
         }
 
         // Create the same hash to locate the document
-        const subscriptionId = createHash('sha256').update(sub.endpoint).digest('hex')
+        const subscriptionId = createHash('sha256').update(token).digest('hex')
 
         // Delete subscription from Firestore
         const subscriptionRef = doc(db, 'users', currentUser.uid, 'subscriptions', subscriptionId)
@@ -53,6 +46,7 @@ export async function unsubscribeUser(sub: PushSubscription) {
 
 export async function sendNotification(message: string) {
     try {
+        var messaging = admin.messaging()
         const { currentUser, db } = await getAuthenticatedAppForUser()
         if (!currentUser) {
             return { success: false, error: 'Not authenticated' }
@@ -66,29 +60,25 @@ export async function sendNotification(message: string) {
             return { success: false, error: 'No subscriptions found' }
         }
 
-        // Send notification to each subscription
-        const notificationPromises = subscriptionsSnapshot.docs.map(docSnap => {
-            const subscription = docSnap.data() as PushSubscription
-            return sendPushNotification(subscription, message).catch(error => {
-                console.error(`Error sending notification to subscription ${docSnap.id}:`, error)
-            })
-        })
+        const tokens = subscriptionsSnapshot.docs.map(doc => (doc.data() as.token as string).filter(Boolean)
 
-        await Promise.all(notificationPromises)
+        const fcmMessage = {
+            notification: {
+                title: 'Test notification',
+                body: message
+            },
+            data: {
+                url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://localhost:3000'}/about`
+            },
+            tokens
+        }
+
+        const response = await messaging.sendEachForMulticast(fcmMessage)
+        console.log(`Successfully sent ${response.successCount} messages, ${response.failureCount} failures`)
+
         return { success: true }
     } catch (error) {
         console.error('Error sending notification:', error)
         return { success: false, error: 'Failed to send notification' }
     }
-}
-
-async function sendPushNotification(subscription: PushSubscription, message: string) {
-    webpush.sendNotification(
-        subscription,
-        JSON.stringify({
-            title: 'Test Notification',
-            body: message,
-            icon: '/icon.png',
-                    })
-                )
 }

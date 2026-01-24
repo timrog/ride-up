@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
         description: 'Sign up for rides',
         start_url: '/',
         display: 'standalone',
-        background_color: '#ffffff',
+        background_color: 'rgb(0, 91, 156)',
         theme_color: '#000000',
         icons: [
             {

@@ -19,7 +19,6 @@ export async function getAuthenticatedAppForUser() {
 
   const authIdToken = (await cookies()).get("__session")?.value
 
-  console.log("Getting authenticated Firebase Server App for user with idToken:", authIdToken?.substring(0, 20))
   // Firebase Server App is a new feature in the JS SDK that allows you to
   // instantiate the SDK with credentials retrieved from the client & has
   // other affordances for use in server environments.
@@ -52,21 +51,13 @@ export async function getAuthenticatedAppForUser() {
 }
 
 function initializeAdminApp() {
-  console.info("Current apps are ", admin.apps.map(app => app?.name))
   if (!admin.apps.length) {
-    console.log('Initializing Firebase Admin SDK...')
-    console.log('NODE_ENV:', process.env.NODE_ENV)
-    console.log('NEXT_PUBLIC_USE_EMULATOR:', process.env.NEXT_PUBLIC_USE_EMULATOR)
-    console.log('NEXT_PUBLIC_FIREBASE_PROJECT_ID:', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID)
-
     const useEmulator = process.env.NEXT_PUBLIC_USE_EMULATOR === 'true'
     const isProduction = process.env.NODE_ENV === 'production'
 
     try {
       if (isProduction) {
-        console.log('🌐 Initializing Firebase Admin for PRODUCTION')
         admin.initializeApp()
-        console.log('✅ Production Admin SDK initialized')
       } else if (useEmulator) {
         console.log('🔧 Initializing Firebase Admin for EMULATOR')
         process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099'
@@ -91,8 +82,6 @@ function initializeAdminApp() {
       console.error('❌ Failed to initialize Firebase Admin SDK:', error)
       throw error
     }
-  } else {
-    console.log('Firebase Admin SDK already initialized')
   }
 }
 

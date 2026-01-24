@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore'
-import { CalendarEvent, Signup, Comment } from './types'
+import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import admin from 'firebase-admin'
 
@@ -158,20 +158,60 @@ export async function addSignup(eventId: string, signupKey: string) {
             membership: user.customClaims?.membership || null
         }
 
+        // Fetch user's notification preferences
+        const notificationPrefs = await adminDb.collection('notifications').doc(user.uid).get()
+        const prefsData = notificationPrefs.data() as NotificationPreferences | undefined
+
         try {
             console.info("Adding signup for user", user.uid, "to event", eventId)
-            await activityRef.update({
-                [`signups.${signupKey}`]: signupRecord
-            })
-            console.info("Adding signup for user", user.uid, "to event", eventId)
+
+            const updateData: any = {
+                [`signups.${signupKey}`]: signupRecord,
+                signupIds: admin.firestore.FieldValue.arrayUnion(signupKey)
+            }
+
+            // Add to notificationSubscribers if user has notifications enabled
+            if (prefsData?.tokens && prefsData.tokens.length > 0) {
+                const activityDoc = await activityRef.get()
+                const activityData = activityDoc.data() || {}
+                let notificationSubscribers = activityData.notificationSubscribers || []
+
+                // Remove existing entry for this user (if any)
+                notificationSubscribers = notificationSubscribers.filter((sub: any) => sub.userId !== user.uid)
+
+                // Add new entry with user's preferences
+                notificationSubscribers.push({
+                    userId: user.uid,
+                    eventUpdates: prefsData.eventUpdates ?? true,
+                    activity: prefsData.activityForSignups ?? true
+                })
+
+                updateData.notificationSubscribers = notificationSubscribers
+            }
+
+            await activityRef.update(updateData)
+            console.info("Added signup for user", user.uid, "to event", eventId)
         } catch (error: any) {
             if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
-                await activityRef.set({
+                const newData: EventActivity = {
+                    signupIds: [signupKey],
                     signups: {
-                        [signupKey]: signupRecord
+                        [signupKey]: signupRecord,
                     },
-                    comments: []
-                })
+                    comments: [],
+                    notificationSubscribers: []
+                }
+
+                // Add to notificationSubscribers if user has notifications enabled
+                if (prefsData?.tokens && prefsData.tokens.length > 0) {
+                    newData.notificationSubscribers = [{
+                        userId: user.uid,
+                        eventUpdates: prefsData.eventUpdates ?? true,
+                        activity: prefsData.activityForSignups ?? true
+                    }]
+                }
+
+                await activityRef.set(newData)
             } else {
                 throw error
             }
@@ -191,7 +231,8 @@ export async function removeSignup(eventId: string, signupKey: string) {
         const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
         await activityRef.update({
-            [`signups.${signupKey}`]: admin.firestore.FieldValue.delete()
+            [`signups.${signupKey}`]: admin.firestore.FieldValue.delete(),
+            signupIds: admin.firestore.FieldValue.arrayRemove(signupKey)
         })
 
         return { success: true }

@@ -12,7 +12,7 @@ export function useAuth() {
         const unsubscribe = onIdTokenChanged(async (firebaseUser) => {
             if (firebaseUser) {
                 const idToken = await firebaseUser.getIdToken()
-                console.log('Id token has changed')
+
                 await setCookie("__session", idToken, {
                     maxAge: 60 * 60 * 24 * 7, // 7 days
                     path: '/',
