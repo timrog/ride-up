@@ -1,40 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { jwtDecode } from 'jwt-decode'
-
-interface DecodedToken {
-    user_id: string
-    email?: string
-    name?: string
-    roles?: string[]
-    membership?: string
-}
+import { logRequest } from '@/lib/logging'
 
 export function middleware(request: NextRequest) {
     const sessionToken = request.cookies.get('__session')?.value
 
-    const logData: Record<string, unknown> = {
-        severity: 'INFO',
-        path: request.nextUrl.pathname,
-        method: request.method,
-        userAgent:request.headers.get('user-agent')
-    }
-
-    if (sessionToken) {
-        try {
-            const decoded = jwtDecode<DecodedToken>(sessionToken)
-            logData.userId = decoded.user_id
-            logData.email = decoded.email
-            logData.displayName = decoded.name
-            logData.roles = decoded.roles
-            logData.membership = decoded.membership
-        } catch {
-            logData.authError = 'Invalid session token'
-        }
-    } else {
-        logData.authenticated = false
-    }
-
-    console.log(logData)
+    logRequest(sessionToken, {
+        httpRequest: {
+            requestMethod: request.method,
+            requestUrl: request.nextUrl.pathname,
+            userAgent: request.headers.get('user-agent'),
+            remoteIp: request.headers.get('x-forwarded-for'),
+        },
+    })
 
     return NextResponse.next()
 }

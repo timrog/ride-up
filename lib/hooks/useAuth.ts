@@ -1,26 +1,23 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { User } from 'firebase/auth'
-import { onIdTokenChanged, onAuthStateChanged } from '@/lib/firebase/auth'
-import { setCookie, deleteCookie } from "cookies-next"
+import { onIdTokenChanged } from '@/lib/firebase/auth'
+import { createSession, deleteSession } from '../../app/sessionActions'
 
 export function useAuth() {
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
+    const userRef = useRef<User | null>(null)
 
     async function updateUser(firebaseUser: User | null) {
+        userRef.current = firebaseUser
+
         if (firebaseUser) {
             const idToken = await firebaseUser.getIdToken()
-
-            await setCookie("__session", idToken, {
-                maxAge: 60 * 60 * 24 * 7, // 7 days
-                path: '/',
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production'
-            })
+            await createSession(idToken)
             setUser(firebaseUser)
         } else {
-            await deleteCookie("__session")
+            await deleteSession()
             setUser(null)
         }
 
@@ -28,9 +25,28 @@ export function useAuth() {
     }
 
     useEffect(() => {
-        const unsubscribe = onIdTokenChanged(updateUser)
+        const timeout = setTimeout(() => {
+            setLoading(false)
+        }, 5000)
 
-        return unsubscribe
+        const unsubscribe = onIdTokenChanged((firebaseUser) => {
+            clearTimeout(timeout)
+            updateUser(firebaseUser)
+        })
+
+        // Refresh session cookie every 55 minutes to keep it fresh for active users
+        const refreshInterval = setInterval(async () => {
+            if (userRef.current) {
+                const idToken = await userRef.current.getIdToken(true)
+                await createSession(idToken)
+            }
+        }, 55 * 60 * 1000)
+
+        return () => {
+            clearTimeout(timeout)
+            clearInterval(refreshInterval)
+            unsubscribe()
+        }
     }, [])
 
     return { user, loading, isAuthenticated: !!user }

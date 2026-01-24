@@ -23,7 +23,7 @@ export default function SignInContent() {
                 signInWithEmailLink(auth, email, window.location.href)
                     .then(cred => {
                         cred.user.getIdTokenResult().then(idToken => {
-                            setCookie('__session', idToken.token)
+
                             window.localStorage.removeItem('emailForSignIn')
                             router.push(returnUrl)
                         })

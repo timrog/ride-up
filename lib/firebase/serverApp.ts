@@ -2,7 +2,7 @@
 // https://nextjs.org/docs/app/building-your-application/rendering/composition-patterns#keeping-server-only-code-out-of-the-client-environment
 import "server-only"
 
-import { cookies, headers } from "next/headers"
+import { cookies } from "next/headers"
 import { initializeServerApp, initializeApp } from "firebase/app"
 
 import { getAuth, connectAuthEmulator } from "firebase/auth"
@@ -11,23 +11,28 @@ import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
 import { clientCredentials } from "./initFirebase"
 
 import admin from 'firebase-admin'
-import { ServiceAccount } from 'firebase-admin/app'
+import type { ServiceAccount } from 'firebase-admin/app'
+
+interface IdTokenResult {
+  claims: Record<string, unknown>
+}
+
+interface SessionUser {
+  uid: string
+  email?: string
+  displayName?: string
+  photoURL?: string
+  getIdTokenResult: () => Promise<IdTokenResult>
+}
 
 // Returns an authenticated client SDK instance for use in Server Side Rendering
 // and Static Site Generation
 export async function getAuthenticatedAppForUser() {
+  const sessionCookie = (await cookies()).get("__session")?.value
 
-  const authIdToken = (await cookies()).get("__session")?.value
-
-  // Firebase Server App is a new feature in the JS SDK that allows you to
-  // instantiate the SDK with credentials retrieved from the client & has
-  // other affordances for use in server environments.
   const firebaseServerApp = initializeServerApp(
-    // https://github.com/firebase/firebase-js-sdk/issues/8863#issuecomment-2751401913
     initializeApp(clientCredentials),
-    {
-      authIdToken
-    }
+    {}
   )
 
   const auth = getAuth(firebaseServerApp)
@@ -35,11 +40,11 @@ export async function getAuthenticatedAppForUser() {
   if (useEmulator) {
     try {
       connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
-    } catch (e) {
+    } catch {
       // ignore if already connected
     }
   }
-  await auth.authStateReady()
+
   const db = getFirestore(firebaseServerApp)
   if (useEmulator) {
     try {
@@ -47,7 +52,26 @@ export async function getAuthenticatedAppForUser() {
     } catch { }
   }
 
-  return { firebaseServerApp, auth, currentUser: auth.currentUser, db }
+  let currentUser: SessionUser | null = null
+
+  if (sessionCookie) {
+    try {
+      const adminAuth = getAdminApp().auth()
+      const decodedClaims = await adminAuth.verifySessionCookie(sessionCookie, true)
+
+      currentUser = {
+        uid: decodedClaims.uid,
+        email: decodedClaims.email,
+        displayName: decodedClaims.name,
+        photoURL: decodedClaims.picture,
+        getIdTokenResult: async () => ({ claims: decodedClaims })
+      }
+    } catch (error) {
+      console.error('Session verification failed:', error)
+    }
+  }
+
+  return { firebaseServerApp, auth, currentUser, db }
 }
 
 function initializeAdminApp() {
