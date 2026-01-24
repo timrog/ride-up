@@ -18,7 +18,7 @@ export function getAdminApp() {
                     clientEmail,
                     privateKey,
                 }),
-            })
+            })  
         }
         app = admin.app()
     }

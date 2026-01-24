@@ -7,6 +7,7 @@ import {
     NextOrObserver,
     User,
 } from "firebase/auth"
+import { deleteCookie } from "cookies-next/client"
 
 import { auth } from "./clientApp"
 
@@ -30,9 +31,15 @@ export async function signInWithGoogle() {
 
 export async function signOut() {
     try {
+        deleteCookie("__session")
         await auth.signOut()
+
+        debugger
+        if (typeof indexedDB !== 'undefined') {
+            indexedDB.deleteDatabase('firebaseLocalStorageDb')
+        }
     } catch (error) {
         console.error("Error signing out", error)
-        throw error // Re-throw so handleSignOut can catch it
+        throw error
     }
 }
