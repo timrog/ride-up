@@ -1,4 +1,4 @@
-import { Autocomplete, AutocompleteItem, Button, DatePicker, Input, Select, SelectItem, Textarea, TimeInput } from "@heroui/react"
+import { Alert, Autocomplete, AutocompleteItem, Button, DatePicker, Input, Select, SelectItem, Textarea, TimeInput } from "@heroui/react"
 import { CalendarEvent } from "app/types"
 import { getAuth } from "firebase/auth"
 import { Timestamp } from "firebase/firestore"
@@ -7,6 +7,8 @@ import SelectableTags from "@/components/SelectableTags"
 
 import { CalendarDate, DateValue, fromDate, getLocalTimeZone, Time, toCalendarDate, toCalendarDateTime, today, toTime } from "@internationalized/date"
 import { defaultLocations } from "app/tags"
+
+const UK_POSTCODE_REGEX = /[A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2}/i
 
 type FormDataType = {
     date: DateValue | undefined
@@ -77,18 +79,25 @@ export default function EventForm({ event, onSubmit }
                 isRequired
             />
 
-            <Autocomplete
-                allowsCustomValue
-                label="Meeting point"
-                size="lg"
-                placeholder={`e.g. ${defaultLocations[0]}`}
-                inputValue={formData.location}
-                defaultItems={defaultLocations.map(loc => ({ loc }))}
-                onInputChange={handleValueChange('location')}
-                isRequired
-            >
-                {(item) => <AutocompleteItem key={item.loc}>{item.loc}</AutocompleteItem>}
-            </Autocomplete>
+            <div>
+                <Autocomplete
+                    allowsCustomValue
+                    label="Meeting point"
+                    size="lg"
+                    placeholder={`e.g. ${defaultLocations[0]}`}
+                    inputValue={formData.location}
+                    defaultItems={defaultLocations.map(loc => ({ loc }))}
+                    onInputChange={handleValueChange('location')}
+                    isRequired
+                >
+                    {(item) => <AutocompleteItem key={item.loc}>{item.loc}</AutocompleteItem>}
+                </Autocomplete>
+                {formData.location && !UK_POSTCODE_REGEX.test(formData.location) && (
+                    <Alert>
+                        Hint: add a postcode to help riders find the meeting point.
+                    </Alert>
+                )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
                 <DatePicker label="Date" size="lg" isRequired value={formData.date}
