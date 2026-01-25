@@ -7,14 +7,18 @@
 		"stage": "NEXT_PUBLIC_USE_EMULATOR=false next dev --turbopack --experimental-https",
 		"build": "NODE_OPTIONS=--enable-source-maps next build",
 		"start": "next start",
-		"emulator": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data"
+		"emulator": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+		"otel": "podman run --rm --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/jaeger:latest"
 	},
 	"dependencies": {
 		"@google-cloud/pubsub": "^5.2.0",
 		"@heroicons/react": "^2.2.0",
 		"@heroui/react": "^2.8.6",
 		"@heroui/theme": "^2.4.24",
+		"@opentelemetry/api": "^1.9.0",
+		"@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
 		"@react-aria/i18n": "^3.12.12",
+		"@vercel/otel": "^2.1.0",
 		"concurrently": "^9.2.1",
 		"cookies-next": "^5.1.0",
 		"firebase": "^12.4.0",

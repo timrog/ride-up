@@ -68,7 +68,7 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
         )
     }, [id])
 
-    const signupCount = Object.keys(activity.signups).length
+    const signupCount = Object.keys(activity.signups || {}).length
     const userId = currentUser?.uid
 
     // Build list of users (primary + extras) with their signup keys
@@ -115,7 +115,7 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
             <WithAuth role="member">
                 <ul className="text-lg">
                     {
-                        Object.entries(activity.signups)
+                        Object.entries(activity.signups || {})
                             .sort(([, a], [, b]) => a.createdAt.toMillis() - b.createdAt.toMillis())
                             .map(([userId, signup]) =>
                                 <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
@@ -142,7 +142,7 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
                         eventId={id}
                         displayName={extraUsers.length ? user.displayName : undefined}
                         signupKey={user.signupKey}
-                        active={!!activity.signups[user.signupKey]}
+                        active={!!activity.signups?.[user.signupKey]}
                     />
                 ))}
             </div>}

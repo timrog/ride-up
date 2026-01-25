@@ -12,3 +12,5 @@ env:
     value: "615148465536"
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:615148465536:web:b91205f11bbc6e47602565
+  - variable: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: https://telemetry.googleapis.com

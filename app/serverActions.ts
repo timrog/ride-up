@@ -4,6 +4,7 @@ import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/
 import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import admin from 'firebase-admin'
+import { withSpan } from '@/lib/tracing'
 
 type DuplicateMode = 'single' | 'weekly'
 
@@ -32,196 +33,190 @@ async function initAuth() {
 }
 
 export async function duplicateEvent(params: DuplicateParams) {
-    const { db, currentUser } = await getAuthenticatedAppForUser()
-
-    console.log('Current event in duplicateEvent:', params.eventId)
     const { eventId, mode, date } = params
 
-    console.log('getting doc', eventId)
-    const snap = await getDoc(doc(db, 'events', eventId))
-    console.log('Event snapshot:', snap.exists(), snap.data())
-    if (!snap.exists()) {
-        return { success: false, error: 'Source event not found' }
-    }
-    const source = snap.data() as CalendarEvent
-    const sourceDate = source.date.toDate()
-    const targetDate = new Date(date)
-    targetDate.setHours(sourceDate.getHours(), sourceDate.getMinutes(), 0, 0)
+    return withSpan('serverAction.duplicateEvent', { eventId, mode }, async (span) => {
+        const { db, currentUser } = await getAuthenticatedAppForUser()
 
-    let targetDates: Date[] = []
-    if (mode === 'single') {
-        targetDates = [targetDate]
-    } else {
-        let current = sourceDate
-        let count = 0
-        const limit = 52
-        while (current.getTime() <= targetDate.getTime() && count++ < limit) {
-            targetDates.push(current)
-            current = addDays(current, 7)
+        const snap = await getDoc(doc(db, 'events', eventId))
+        if (!snap.exists()) {
+            return { success: false, error: 'Source event not found' }
         }
-    }
+        const source = snap.data() as CalendarEvent
+        const sourceDate = source.date.toDate()
+        const targetDate = new Date(date)
+        targetDate.setHours(sourceDate.getHours(), sourceDate.getMinutes(), 0, 0)
 
-    console.log('Duplicating to dates:', targetDates)
-    const batchResults: string[] = []
-    await Promise.all(targetDates.map(d => {
-        const newDoc: Omit<CalendarEvent, 'id'> = {
-            ...source,
-            isCancelled: false,
-            date: Timestamp.fromDate(d),
-            createdAt: Timestamp.now(),
-            createdBy: currentUser?.uid!,
-            createdByName: currentUser?.displayName || 'Unknown',
-            linkId: source.linkId || eventId,
+        let targetDates: Date[] = []
+        if (mode === 'single') {
+            targetDates = [targetDate]
+        } else {
+            let current = sourceDate
+            let count = 0
+            const limit = 52
+            while (current.getTime() <= targetDate.getTime() && count++ < limit) {
+                targetDates.push(current)
+                current = addDays(current, 7)
+            }
         }
 
-        return addDoc(collection(db, 'events'), newDoc)
-    }))
+        span.setAttribute('events.created_count', targetDates.length)
 
-    if (source.linkId !== eventId) {
-        console.log('updating link id')
+        const batchResults: string[] = []
+        await Promise.all(targetDates.map(d => {
+            const newDoc: Omit<CalendarEvent, 'id'> = {
+                ...source,
+                isCancelled: false,
+                date: Timestamp.fromDate(d),
+                createdAt: Timestamp.now(),
+                createdBy: currentUser?.uid!,
+                createdByName: currentUser?.displayName || 'Unknown',
+                linkId: source.linkId || eventId,
+            }
 
-        await updateDoc(doc(db, 'events', eventId), { linkId: eventId })
-    }
+            return addDoc(collection(db, 'events'), newDoc)
+        }))
 
-    revalidatePath(`/events/${eventId}`)
-    return { success: true, created: batchResults }
+        if (source.linkId !== eventId) {
+            await updateDoc(doc(db, 'events', eventId), { linkId: eventId })
+        }
+
+        revalidatePath(`/events/${eventId}`)
+        return { success: true, created: batchResults }
+    })
 }
 
 export async function addComment(eventId: string, commentText: string) {
-    try {
-        const { adminDb, currentUser, auth } = await initAuth()
-
-        const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
-
-        const user = await auth.getUser(currentUser.uid)
-        const commentRecord: Comment = {
-            createdAt: admin.firestore.Timestamp.now() as Timestamp,
-            name: user.displayName || "Anonymous",
-            avatarUrl: user.photoURL || null,
-            userId: user.uid,
-            text: commentText
-        }
-
+    return withSpan('serverAction.addComment', { eventId, 'comment.length': commentText.length }, async () => {
         try {
-            // Try to update the existing document
-            await activityRef.update({
-                comments: admin.firestore.FieldValue.arrayUnion(commentRecord)
-            })
-        } catch (error: any) {
-            // If document doesn't exist (error code 5 = NOT_FOUND), create it
-            if (error.code === 5 || error.message?.includes('NOT_FOUND') || error.message?.includes('No document to update')) {
-                await activityRef.set({
-                    signups: {},
-                    comments: [commentRecord]
-                })
-            } else {
-                // Re-throw other errors
-                throw error
-            }
-        }
+            const { adminDb, currentUser, auth } = await initAuth()
 
-        return { success: true }
-    } catch (error) {
-        console.error('Error adding comment:', error)
-        return { success: false, error: 'Failed to add comment' }
-    }
+            const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
+
+            const user = await auth.getUser(currentUser.uid)
+            const commentRecord: Comment = {
+                createdAt: admin.firestore.Timestamp.now() as Timestamp,
+                name: user.displayName || "Anonymous",
+                avatarUrl: user.photoURL || null,
+                userId: user.uid,
+                text: commentText
+            }
+
+            try {
+                await activityRef.update({
+                    comments: admin.firestore.FieldValue.arrayUnion(commentRecord)
+                })
+            } catch (error: unknown) {
+                const err = error as { code?: number; message?: string }
+                if (err.code === 5 || err.message?.includes('NOT_FOUND') || err.message?.includes('No document to update')) {
+                    await activityRef.set({
+                        signups: {},
+                        comments: [commentRecord]
+                    })
+                } else {
+                    throw error
+                }
+            }
+
+            return { success: true }
+        } catch (error) {
+            console.error('Error adding comment:', error)
+            return { success: false, error: 'Failed to add comment' }
+        }
+    })
 }
 
 export async function addSignup(eventId: string, signupKey: string) {
-    try {
-        const { adminDb, currentUser, auth } = await initAuth()
-
-        const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
-        const user = await auth.getUser(currentUser.uid)
-
-        // Parse signupKey to determine user data
-        let phone = user.customClaims?.phone || null
-        let name = user.displayName || "Anonymous"
-
-        const parts = signupKey.split('-')
-        if (parts.length > 1) {
-            // Extra user: uid-index
-            const extraUserIndex = parseInt(parts[parts.length - 1])
-            if (!isNaN(extraUserIndex) && user.customClaims?.extraUsers && extraUserIndex >= 0 && extraUserIndex < user.customClaims.extraUsers.length) {
-                const extraUser = user.customClaims.extraUsers[extraUserIndex]
-                name = extraUser.displayName
-                phone = extraUser.phone || null
-            }
-        }
-
-        const signupRecord: Signup = {
-            name,
-            createdAt: admin.firestore.Timestamp.now() as Timestamp,
-            phone,
-            avatarUrl: user.photoURL || null,
-            userId: user.uid,
-            membership: user.customClaims?.membership || null
-        }
-
-        // Fetch user's notification preferences
-        const notificationPrefs = await adminDb.collection('notifications').doc(user.uid).get()
-        const prefsData = notificationPrefs.data() as NotificationPreferences | undefined
-
+    return withSpan('serverAction.addSignup', { eventId, signupKey }, async (span) => {
         try {
-            console.info("Adding signup for user", user.uid, "to event", eventId)
+            const { adminDb, currentUser, auth } = await initAuth()
 
-            const updateData: any = {
-                [`signups.${signupKey}`]: signupRecord,
-                signupIds: admin.firestore.FieldValue.arrayUnion(signupKey)
+            span.setAttribute('user.id', currentUser.uid)
+
+            const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
+            const user = await auth.getUser(currentUser.uid)
+
+            let phone = user.customClaims?.phone || null
+            let name = user.displayName || "Anonymous"
+
+            const parts = signupKey.split('-')
+            if (parts.length > 1) {
+                const extraUserIndex = parseInt(parts[parts.length - 1])
+                if (!isNaN(extraUserIndex) && user.customClaims?.extraUsers && extraUserIndex >= 0 && extraUserIndex < user.customClaims.extraUsers.length) {
+                    const extraUser = user.customClaims.extraUsers[extraUserIndex]
+                    name = extraUser.displayName
+                    phone = extraUser.phone || null
+                }
             }
 
-            // Add to notificationSubscribers if user has notifications enabled
-            if (prefsData?.tokens && prefsData.tokens.length > 0) {
-                const activityDoc = await activityRef.get()
-                const activityData = activityDoc.data() || {}
-                let notificationSubscribers = activityData.notificationSubscribers || []
-
-                // Remove existing entry for this user (if any)
-                notificationSubscribers = notificationSubscribers.filter((sub: any) => sub.userId !== user.uid)
-
-                // Add new entry with user's preferences
-                notificationSubscribers.push({
-                    userId: user.uid,
-                    eventUpdates: prefsData.eventUpdates ?? true,
-                    activity: prefsData.activityForSignups ?? true
-                })
-
-                updateData.notificationSubscribers = notificationSubscribers
+            const signupRecord: Signup = {
+                name,
+                createdAt: admin.firestore.Timestamp.now() as Timestamp,
+                phone,
+                avatarUrl: user.photoURL || null,
+                userId: user.uid,
+                membership: user.customClaims?.membership || null
             }
 
-            await activityRef.update(updateData)
-            console.info("Added signup for user", user.uid, "to event", eventId)
-        } catch (error: any) {
-            if (error.code === 5 || error.message?.includes('NOT_FOUND')) {
-                const newData: EventActivity = {
-                    signupIds: [signupKey],
-                    signups: {
-                        [signupKey]: signupRecord,
-                    },
-                    comments: [],
-                    notificationSubscribers: []
+            const notificationPrefs = await adminDb.collection('notifications').doc(user.uid).get()
+            const prefsData = notificationPrefs.data() as NotificationPreferences | undefined
+
+            try {
+                const updateData: Record<string, unknown> = {
+                    [`signups.${signupKey}`]: signupRecord,
+                    signupIds: admin.firestore.FieldValue.arrayUnion(signupKey)
                 }
 
-                // Add to notificationSubscribers if user has notifications enabled
                 if (prefsData?.tokens && prefsData.tokens.length > 0) {
-                    newData.notificationSubscribers = [{
+                    const activityDoc = await activityRef.get()
+                    const activityData = activityDoc.data() || {}
+                    let notificationSubscribers = activityData.notificationSubscribers || []
+
+                    notificationSubscribers = notificationSubscribers.filter((sub: { userId: string }) => sub.userId !== user.uid)
+
+                    notificationSubscribers.push({
                         userId: user.uid,
                         eventUpdates: prefsData.eventUpdates ?? true,
                         activity: prefsData.activityForSignups ?? true
-                    }]
+                    })
+
+                    updateData.notificationSubscribers = notificationSubscribers
                 }
 
-                await activityRef.set(newData)
-            } else {
-                throw error
-            }
-        }
+                await activityRef.update(updateData)
+            } catch (error: unknown) {
+                const err = error as { code?: number; message?: string }
+                if (err.code === 5 || err.message?.includes('NOT_FOUND')) {
+                    const newData: EventActivity = {
+                        signupIds: [signupKey],
+                        signups: {
+                            [signupKey]: signupRecord,
+                        },
+                        comments: [],
+                        notificationSubscribers: []
+                    }
 
-        return { success: true }
-    } catch (error) {
-        console.error('Error adding signup:', error)
-        return { success: false, error: error.message }
-    }
+                    if (prefsData?.tokens && prefsData.tokens.length > 0) {
+                        newData.notificationSubscribers = [{
+                            userId: user.uid,
+                            eventUpdates: prefsData.eventUpdates ?? true,
+                            activity: prefsData.activityForSignups ?? true
+                        }]
+                    }
+
+                    await activityRef.set(newData)
+                } else {
+                    throw error
+                }
+            }
+
+            return { success: true }
+        } catch (error) {
+            console.error('Error adding signup:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            return { success: false, error: errorMessage }
+        }
+    })
 }
 
 export async function removeSignup(eventId: string, signupKey: string) {
