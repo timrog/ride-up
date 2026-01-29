@@ -35,7 +35,8 @@ async function initAuth() {
 export async function duplicateEvent(params: DuplicateParams) {
     const { eventId, mode, date } = params
 
-    return withSpan('serverAction.duplicateEvent', { eventId, mode }, async (span) => {
+    return withSpan('serverAction.duplicateEvent', async (span) => {
+        span.setAttributes({ eventId, mode })
         const { db, currentUser } = await getAuthenticatedAppForUser()
 
         const snap = await getDoc(doc(db, 'events', eventId))
@@ -87,7 +88,8 @@ export async function duplicateEvent(params: DuplicateParams) {
 }
 
 export async function addComment(eventId: string, commentText: string) {
-    return withSpan('serverAction.addComment', { eventId, 'comment.length': commentText.length }, async () => {
+    return withSpan('serverAction.addComment', async (span) => {
+        span.setAttributes({ eventId, 'comment.length': commentText.length })
         try {
             const { adminDb, currentUser, auth } = await initAuth()
 
@@ -127,7 +129,8 @@ export async function addComment(eventId: string, commentText: string) {
 }
 
 export async function addSignup(eventId: string, signupKey: string) {
-    return withSpan('serverAction.addSignup', { eventId, signupKey }, async (span) => {
+    return withSpan('serverAction.addSignup', async (span) => {
+        span.setAttributes({ eventId, signupKey })
         try {
             const { adminDb, currentUser, auth } = await initAuth()
 

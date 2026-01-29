@@ -6,7 +6,7 @@ import { generateICalStream, ICalConfig } from '../ical-utils'
 import { withSpan } from '@/lib/tracing'
 
 export async function GET(request: NextRequest) {
-    return withSpan('api.calendar.feed', {}, async (span) => {
+    return withSpan('api.calendar.feed', async (span) => {
         try {
             const oneMonthAgo = new Date()
             oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
