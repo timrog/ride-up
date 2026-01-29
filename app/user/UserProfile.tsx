@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { addToast, Button, Input } from "@heroui/react"
 import { getAuth, updateProfile } from "firebase/auth"
 import { useRoles } from "app/clientAuth"
+import MembershipHelp from "./MembershipHelp"
 
 export default function UserProfile() {
     const auth = getAuth()
@@ -30,6 +31,9 @@ export default function UserProfile() {
     }
 
     return (
+        <div>
+            <MembershipHelp />
+
         <div className="max-w-md">
             <h2 className="text-xl font-bold mb-4">Your profile</h2>
 
@@ -59,6 +63,7 @@ export default function UserProfile() {
             >
                 Save
             </Button>
+            </div>
         </div>
     )
 }

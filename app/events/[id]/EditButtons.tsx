@@ -58,7 +58,6 @@ export default function EditButtons({ eventId, isCancelled }: EditButtonsProps) 
                         >
                             {isCancelled ? "Uncancel" : "Cancel"}
                         </DropdownItem>
-                        {roles?.includes("admin") ? (
                             <DropdownItem
                                 key="delete"
                                 className="text-danger" color="danger"
@@ -66,8 +65,7 @@ export default function EditButtons({ eventId, isCancelled }: EditButtonsProps) 
                                 onPress={() => setDeleteOpen(true)}
                             >
                                 Delete
-                            </DropdownItem>
-                        ) : null}
+                        </DropdownItem>
                     </DropdownMenu>
                 </Dropdown>
             </ButtonGroup>

@@ -2,9 +2,9 @@
 import React, { useEffect, useState } from 'react'
 import { addToast, Alert, Button, Input } from "@heroui/react"
 import { signInWithGoogle } from "@/lib/firebase/auth"
-import { getAuth, isSignInWithEmailLink, sendSignInLinkToEmail, signInWithEmailAndPassword, signInWithEmailLink } from "firebase/auth"
+import { getAuth, IdTokenResult, isSignInWithEmailLink, sendSignInLinkToEmail, signInWithEmailAndPassword, signInWithEmailLink } from "firebase/auth"
 import { useRouter, useSearchParams } from "next/navigation"
-import { setCookie } from "cookies-next/client"
+import { useRoles } from "app/clientAuth"
 
 export default function SignInContent() {
     const [email, setEmail] = useState('')
@@ -15,6 +15,18 @@ export default function SignInContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const returnUrl = searchParams.get('returnUrl') || '/'
+    const { roles } = useRoles()
+
+    const hasRoles = (idToken: IdTokenResult) => {
+        const tokenRoles = idToken.claims['roles'] as string[] | undefined
+        return tokenRoles && tokenRoles.length > 0
+    }
+
+    const redirectIfHasRoles = (idToken: IdTokenResult) => {
+        if (hasRoles(idToken)) {
+            router.push(returnUrl)
+        }
+    }
 
     useEffect(() => {
         if (isSignInWithEmailLink(auth, window.location.href)) {
@@ -23,9 +35,8 @@ export default function SignInContent() {
                 signInWithEmailLink(auth, email, window.location.href)
                     .then(cred => {
                         cred.user.getIdTokenResult().then(idToken => {
-
                             window.localStorage.removeItem('emailForSignIn')
-                            router.push(returnUrl)
+                            redirectIfHasRoles(idToken)
                         })
                     })
                     .catch((error) => {
@@ -37,15 +48,19 @@ export default function SignInContent() {
             }
         }
 
-        if (auth.currentUser && !wrongBrowser) {
+        if (auth.currentUser && !wrongBrowser && roles.length > 0) {
             router.push(returnUrl)
         }
-    }, [returnUrl, router, auth])
+    }, [returnUrl, router, auth, roles, wrongBrowser])
 
     const handleGoogleSignIn = async () => {
         try {
             await signInWithGoogle()
-            router.push(returnUrl)
+            const user = auth.currentUser
+            if (user) {
+                const idToken = await user.getIdTokenResult()
+                redirectIfHasRoles(idToken)
+            }
         } catch (error) {
             console.error('Error signing in with Google:', error)
             alert('Failed to sign in with Google. Please try again.')
@@ -57,8 +72,9 @@ export default function SignInContent() {
 
         if (process.env.NODE_ENV === 'development' && password) {
             try {
-                await signInWithEmailAndPassword(auth, email, password)
-                router.push(returnUrl)
+                const cred = await signInWithEmailAndPassword(auth, email, password)
+                const idToken = await cred.user.getIdTokenResult()
+                redirectIfHasRoles(idToken)
             }
             catch {
                 addToast({ description: 'Failed to sign in. Please try again.', color: 'danger' })

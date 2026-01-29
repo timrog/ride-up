@@ -4,10 +4,10 @@ import { ReactNode, useState } from "react"
 import Activity from "./activity"
 import RouteEmbed from "./routeEmbed"
 import WithAuth from "app/withAuthClient"
-import { Alert, Button, Link } from "@heroui/react"
+import { Button, Link } from "@heroui/react"
 import { ChatBubbleLeftIcon, MapIcon, PencilIcon } from "@heroicons/react/24/outline"
 import { IconInline } from "@/components/IconLine"
-import MembershipHelpDrawer from "./MembershipHelpDrawer"
+import MembershipHelp from "../../user/MembershipHelp"
 
 interface EventTabsProps {
     id: string
@@ -20,20 +20,12 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
     const [activeTab, setActiveTab] = useState('details')
 
     const Signups = () => {
-        const [helpOpen, setHelpOpen] = useState(false)
         return <>
             <WithAuth role="member">
                 <Activity id={id} isActive={isActive} />
             </WithAuth>
 
-            <WithAuth except role="member">
-                <Alert color="warning" className="mt-4">
-                    <p>I can't find an active membership. Please join or renew to sign up to this event. Or sign out and sign in again with an email address linked to a valid membership.</p>
-                    <Button color="secondary" onPress={() => setHelpOpen(true)}>Help</Button>
-                </Alert>
-            </WithAuth>
-
-            <MembershipHelpDrawer isOpen={helpOpen} onOpenChange={setHelpOpen} />
+            <MembershipHelp />
 
             <WithAuth none>
                 <Button as={Link} color="primary" href={`/user?returnUrl=/events/${id}`}>Sign in to sign up</Button>
