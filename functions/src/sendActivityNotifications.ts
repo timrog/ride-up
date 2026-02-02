@@ -4,7 +4,7 @@ import { onDocumentWritten } from 'firebase-functions/firestore'
 import { NotificationSubscriber } from "../../app/types"
 import { AggregatedNotifications } from "./aggregateNotifications"
 
-const region = 'europe-west2'
+const region = 'europe-north1'
 
 export const sendActivityNotifications = onDocumentWritten(
     {

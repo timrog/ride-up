@@ -2,7 +2,7 @@ import admin from 'firebase-admin'
 import { onDocumentWritten } from 'firebase-functions/firestore'
 import { NotificationPreferences, NotificationSubscriber } from "../../app/types"
 
-const region = 'europe-west2'
+const region = 'europe-north1'
 
 export type AggregatedNotifications = {
     tagUserIds: { [tagName: string]: string[] } // map of tag names to user ids

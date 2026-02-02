@@ -7,15 +7,70 @@ import { PubSub } from '@google-cloud/pubsub'
 const region = 'europe-west2'
 
 function formatE164PhoneNumber(phoneNumber: string): string {
-    return phoneNumber.replace(/^(t:)?0/g, '+44').replace(/[^\d+]/g, '')
+    return phoneNumber.replace(/^(t:)?(0|\+?44)?/g, '+44').replace(/[^\d+]/g, '')
 }
 
-export const SendMembersToAuth = onMessagePublished({
-    topic: "all-members", region
-}, async (event) => {
-    const records = decodeMembersCsv(event)
+type MemberRecord = ReturnType<typeof decodeMembersCsv>[number]
 
-    const emailGroups = new Map<string, typeof records>()
+type UserClaims = {
+    roles: string[]
+    membership: string
+    phone: string | null
+    extraUsers?: Array<{ displayName: string; phone: string | null }>
+}
+
+function getDisplayName(record: MemberRecord): string {
+    return `${record["First name"]} ${record["Last name"]}`.trim()
+}
+
+function getPhoneNumber(record: MemberRecord): string | null {
+    return record["Members directory"]?.toLowerCase() === 'yes' && record["Mobile number"]
+        ? formatE164PhoneNumber(record["Mobile number"])
+        : null
+}
+
+function getRoles(record: MemberRecord | undefined): string[] {
+    const roles = new Set<string>()
+    if (record) {
+        roles.add('member')
+        if (record["Ride Leader"]?.toLowerCase() === 'yes') roles.add('leader')
+        if (record["Site role"]?.toLowerCase() === 'admin') roles.add('admin')
+    }
+    return [...roles]
+}
+
+function getExtraUsers(duplicateRecords: MemberRecord[], incoming: MemberRecord | undefined): Array<{ displayName: string; phone: string | null }> {
+    const extraUsers: Array<{ displayName: string; phone: string | null }> = []
+    if (duplicateRecords.length > 1) {
+        duplicateRecords.forEach(record => {
+            if (record === incoming) return
+
+            extraUsers.push({
+                displayName: getDisplayName(record),
+                phone: getPhoneNumber(record)
+            })
+        })
+    }
+
+    return extraUsers
+}
+
+function getClaims(roles: string[], membership: string, phone: string | null, extraUsers: Array<{ displayName: string; phone: string | null }>): UserClaims {
+    const claims: UserClaims = {
+        roles,
+        membership,
+        phone
+    }
+
+    if (extraUsers.length > 0) {
+        claims.extraUsers = extraUsers
+    }
+
+    return claims
+}
+
+function groupRecordsByEmail(records: MemberRecord[]): Map<string, MemberRecord[]> {
+    const emailGroups = new Map<string, MemberRecord[]>()
     records.forEach(r => {
         const email = r.Email.toLowerCase()
         if (!emailGroups.has(email)) {
@@ -30,10 +85,11 @@ export const SendMembersToAuth = onMessagePublished({
         }
     })
 
-    const newUsers = new Map(records.map(r => [r.Email.toLowerCase(), r]))
-    const auth = admin.auth()
-    const existingUsers = new Map<string, admin.auth.UserRecord>()
+    return emailGroups
+}
 
+async function loadExistingAuthUsers(auth: admin.auth.Auth): Promise<Map<string, admin.auth.UserRecord>> {
+    const existingUsers = new Map<string, admin.auth.UserRecord>()
     let nextPageToken: string | undefined
     do {
         const listUsersResult = await auth.listUsers(1000, nextPageToken)
@@ -44,92 +100,125 @@ export const SendMembersToAuth = onMessagePublished({
     } while (nextPageToken)
 
     logger.info(`Retrieved ${existingUsers.size} existing users`)
+    return existingUsers
+}
 
+async function loadCookieValues(): Promise<string[]> {
     const cookieDoc = await admin.firestore().doc('functions/cookie').get()
-    const cookieValues = cookieDoc.get('values') as string[] || []
+    return cookieDoc.get('values') as string[] || []
+}
 
-    let updated = 0, created = 0, photosQueued = 0
+export const SendMembersToAuth = onMessagePublished({
+    topic: "all-members", region
+}, async (event) => {
+    const records = decodeMembersCsv(event)
+    const emailGroups = groupRecordsByEmail(records)
+    const newUsers = new Map(records.map(r => [r.Email.toLowerCase(), r]))
+    const auth = admin.auth()
+    const existingUsers = await loadExistingAuthUsers(auth)
+    const cookieValues = await loadCookieValues()
+
+    let updated = 0, created = 0, photosQueued = 0, profilesUpdated = 0
     const keys = new Set<string>([...newUsers.keys(), ...existingUsers.keys()])
     const pubsub = new PubSub()
     const photoTopic = pubsub.topic('member-photos')
 
-    await Promise.all([...keys].map(async (key) => {
-        let existing = existingUsers.get(key)
-        let incoming = newUsers.get(key)
-        let phoneNumber: string | null = null
-
-        if (incoming) {
-            const displayName = `${incoming["First name"]} ${incoming["Last name"]}`.trim()
-            phoneNumber = incoming["Members directory"]?.toLowerCase() === 'yes' && incoming["Mobile number"] &&
-                formatE164PhoneNumber(incoming["Mobile number"]) || null
-
-            const photoURL = existing?.photoURL
-            const newPhotoUrl = incoming["Photo"]?.trim()
-
-            if (!existing) {
-                existing = await auth.createUser({
-                    email: incoming.Email,
-                    displayName
-                })
-                created++
-            }
-
-            if (newPhotoUrl && newPhotoUrl !== photoURL) {
-                await photoTopic.publishMessage({
-                    json: {
-                        photoUrl: newPhotoUrl,
-                        email: incoming.Email,
-                        uid: existing.uid,
-                        cookies: cookieValues
-                    } as MemberPhotoMessage
-                })
-
-                photosQueued++
-            }
-        }
-
-        const roles = new Set<string>()
-        if (incoming) {
-            roles.add('member')
-            if (incoming["Ride Leader"]?.toLowerCase() === 'yes') roles.add('leader')
-            if (incoming["Site role"]?.toLowerCase() === 'admin') roles.add('admin')
-        }
-
-        const extraUsers: Array<{ displayName: string; phone: string | null }> = []
-        const duplicateRecords = emailGroups.get(key) || []
-        if (duplicateRecords.length > 1) {
-            duplicateRecords.forEach(record => {
-                if (record === incoming) return
-
-                const name = `${record["First name"]} ${record["Last name"]}`.trim()
-                const phone = record["Members directory"]?.toLowerCase() === 'yes' && record["Mobile number"] &&
-                    formatE164PhoneNumber(record["Mobile number"]) || null
-                extraUsers.push({ displayName: name, phone })
+    const getOrCreateUser = async (
+        key: string,
+        incoming?: MemberRecord
+    ): Promise<admin.auth.UserRecord> => {
+        const existing = existingUsers.get(key)
+        const displayName = incoming ? getDisplayName(incoming) : null
+        const phoneNumber = incoming ? getPhoneNumber(incoming) : null
+        if (!existing) {
+            const createdUser = await auth.createUser({
+                email: incoming!.Email,
+                displayName: displayName || null,
+                phoneNumber: phoneNumber || null
             })
+            created++
+            return createdUser
         }
 
-        const claims: any = {
-            roles: [...roles],
-            membership: incoming?.Membership || 'none',
-            phone: phoneNumber
+        const updates: admin.auth.UpdateRequest = {}
+        if (!existing.displayName?.trim() && displayName) {
+            updates.displayName = displayName
+        }
+        if (existing.phoneNumber !== phoneNumber) {
+            updates.phoneNumber = phoneNumber
         }
 
-        if (extraUsers.length > 0) {
-            claims.extraUsers = extraUsers
+        if (Object.keys(updates).length > 0) {
+            try {
+                const updatedUser = await auth.updateUser(existing.uid, updates)
+                profilesUpdated++
+                return updatedUser
+            } catch (error) {
+                logger.error(`Error updating user ${key} ${JSON.stringify(updates)}`, error, updates)
+                throw error
+            }
         }
 
+        return existing
+    }
+
+    const updatePhoto = async (
+        existing: admin.auth.UserRecord,
+        incoming: MemberRecord
+    ): Promise<void> => {
+        const photoURL = existing.photoURL
+        const newPhotoUrl = incoming["Photo"]?.trim()
+
+        if (newPhotoUrl && newPhotoUrl !== photoURL) {
+            await photoTopic.publishMessage({
+                json: {
+                    photoUrl: newPhotoUrl,
+                    email: incoming.Email,
+                    uid: existing.uid,
+                    cookies: cookieValues
+                } as MemberPhotoMessage
+            })
+
+            photosQueued++
+        }
+    }
+
+    const updateClaims = async (
+        existing: admin.auth.UserRecord | undefined,
+        claims: UserClaims,
+        key: string
+    ): Promise<void> => {
+        if (!existing) return
+
+        const existingClaims = existing.customClaims as UserClaims | undefined
         try {
-            if (existing && (existing.customClaims?.membership !== claims.membership
-                || existing.customClaims?.roles?.join() !== claims.roles.join()
-                || existing.customClaims?.phone !== claims.phone
-                || JSON.stringify(existing.customClaims?.extraUsers) !== JSON.stringify(claims.extraUsers))) {
+            if (existingClaims?.membership !== claims.membership
+                || existingClaims?.roles?.join() !== claims.roles.join()
+                || existingClaims?.phone !== claims.phone
+                || JSON.stringify(existingClaims?.extraUsers) !== JSON.stringify(claims.extraUsers)) {
                 await auth.setCustomUserClaims(existing.uid, claims)
                 updated++
             }
         } catch (error) {
             logger.error(`Error setting claims for user ${key}:`, error)
         }
+    }
+
+    await Promise.all([...keys].map(async (key) => {
+        const incoming = newUsers.get(key)
+        const phoneNumber = incoming ? getPhoneNumber(incoming) : null
+        const user = await getOrCreateUser(key, incoming)
+
+        if (incoming && user) {
+            await updatePhoto(user, incoming)
+        }
+
+        const roles = getRoles(incoming)
+        const duplicateRecords = emailGroups.get(key) || []
+        const extraUsers = getExtraUsers(duplicateRecords, incoming)
+        const claims = getClaims(roles, incoming?.Membership || 'none', phoneNumber, extraUsers)
+        await updateClaims(user, claims, key)
     }))
 
-    logger.info(`Updated claims for ${newUsers.size} new and ${existingUsers.size} existing users. Updated: ${updated} Created: ${created} Photos queued: ${photosQueued}`)
+    logger.info(`Updated claims for ${newUsers.size} new and ${existingUsers.size} existing users. Updated: ${updated} Created: ${created} Profiles updated: ${profilesUpdated} Photos queued: ${photosQueued}`)
 })

@@ -4,7 +4,7 @@ import { CalendarEvent, EventActivity, NotificationPreferences, NotificationSubs
 import { AggregatedNotifications } from './aggregateNotifications'
 import { MulticastMessage, SendResponse } from "firebase-admin/messaging"
 
-const region = 'europe-west2'
+const region = 'europe-north1'
 
 export const sendEventNotifications = onDocumentWritten(
     {

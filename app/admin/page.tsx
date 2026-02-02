@@ -13,6 +13,7 @@ export default async function AdminPage() {
     const auth = getAdminApp().auth()
     const listUsersResult = await auth.listUsers()
 
+
     return (
         <div className="container px-4 sm:mx-auto my-16">
             <h1>User Management</h1>
