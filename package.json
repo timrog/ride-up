@@ -5,7 +5,7 @@
 	"scripts": {
 		"dev": "NEXT_PUBLIC_USE_EMULATOR=true next dev --turbopack --experimental-https",
 		"stage": "NEXT_PUBLIC_USE_EMULATOR=false next dev --turbopack --experimental-https",
-		"build": "NODE_OPTIONS=--enable-source-maps next build",
+		"build": "node scripts/generate-sw.js && NODE_OPTIONS=--enable-source-maps next build",
 		"start": "next start",
 		"emulator": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
 		"otel": "podman run --rm --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/jaeger:latest"
@@ -22,6 +22,7 @@
 		"@react-aria/i18n": "^3.12.12",
 		"concurrently": "^9.2.1",
 		"cookies-next": "^5.1.0",
+		"dotenv": "^17.2.3",
 		"firebase": "^12.4.0",
 		"firebase-admin": "^13.2.0",
 		"framer-motion": "^12.23.26",
@@ -39,6 +40,7 @@
 		"@types/node": "^20",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
+		"esbuild": "^0.27.2",
 		"eslint": "^9",
 		"eslint-config-next": "15.3.0",
 		"tailwindcss": "^4.1.18",

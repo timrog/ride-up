@@ -20,3 +20,13 @@ env:
     value: http/protobuf
   - variable: OTEL_EXPORTER_OTLP_HEADERS
     secret: HONEYCOMB_API_KEY
+  - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    value: BCIcgaIuJgy2CFjQmOZ8ox1CtGigBweQa5i636MpnAdZBS4HuCweWrLmZAZgoYWJZaTstgupcW-XQZXlkqEHV0
+  - variable: VAPID_PRIVATE_KEY
+    secret: VAPID_PRIVATE_KEY
+  - variable: CONTACT_EMAIL
+    secret: CONTACT_EMAIL
+  - variable: CONTACT_WHATSAPP
+    secret: CONTACT_WHATSAPP        
+  - variable: CONTACT_RIDECOORD
+    secret: CONTACT_RIDECOORD           
