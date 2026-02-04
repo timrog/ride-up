@@ -5,6 +5,7 @@ import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity 
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import admin from 'firebase-admin'
 import { withSpan } from '@/lib/tracing'
+import { SpanStatusCode } from "@opentelemetry/api"
 
 type DuplicateMode = 'single' | 'weekly'
 
@@ -239,44 +240,54 @@ export async function removeSignup(eventId: string, signupKey: string) {
         return { success: false, error: error.message }
     }
 }
-
 export async function getLeaders() {
-    try {
-        const listUsersResult = await getAdminApp().auth().listUsers()
+    return withSpan('serverAction.getLeaders', async (span) => {
+        try {
+            const listUsersResult = await getAdminApp().auth().listUsers()
 
-        const leaders = listUsersResult.users
-            .filter(user => {
-                return user.customClaims?.roles?.includes('leader')
+            const leaders = listUsersResult.users
+                .filter(user => {
+                    return user.customClaims?.roles?.includes('leader')
+                })
+                .map(user => ({
+                    uid: user.uid,
+                    displayName: user.displayName || user.email || 'Unknown User'
+                }))
+
+            leaders.push({
+                uid: 'test-leader-uid',
+                displayName: 'Test Leader'
             })
-            .map(user => ({
-                uid: user.uid,
-                displayName: user.displayName || user.email || 'Unknown User'
-            }))
 
-        leaders.push({
-            uid: 'test-leader-uid',
-            displayName: 'Test Leader'
-        })
-        return { success: true, leaders }
-    } catch (error) {
-        console.error('Error getting leaders:', error)
-        return { success: false, error: 'Failed to get leaders' }
-    }
+            span.setAttribute('leaders.count', leaders.length)
+            return { success: true, leaders }
+        } catch (error) {
+            span.setAttribute('error.message', error.toString())
+            span.setStatus({ code: SpanStatusCode.ERROR, message: error.toString() })
+            console.error('Error getting leaders:', error)
+            return { success: false, error: 'Failed to get leaders' }
+        }
+    })
 }
 
 export async function transferEventOwnership(eventId: string, newOwnerId: string, newOwnerName: string) {
-    try {
-        const { db } = await getAuthenticatedAppForUser()
+    return withSpan('serverAction.transferEventOwnership', async (span) => {
+        span.setAttributes({ eventId, newOwnerId })
+        try {
+            const { adminDb } = await initAuth()
 
-        await updateDoc(doc(db, 'events', eventId), {
-            createdBy: newOwnerId,
-            createdByName: newOwnerName
-        })
+            await adminDb.doc('events/' + eventId).update({
+                createdBy: newOwnerId,
+                createdByName: newOwnerName
+            })
 
-        revalidatePath(`/events/${eventId}`)
-        return { success: true }
-    } catch (error) {
-        console.error('Error transferring event ownership:', error)
-        return { success: false, error: 'Failed to transfer ownership' }
-    }
+            revalidatePath(`/events/${eventId}`)
+            return { success: true }
+        } catch (error) {
+            span.setAttribute('error.message', error.toString())
+            span.setStatus({ code: SpanStatusCode.ERROR, message: error.toString() })
+            console.error('Error transferring event ownership:', error)
+            return { success: false, error: 'Failed to transfer ownership' }
+        }
+    })
 }
