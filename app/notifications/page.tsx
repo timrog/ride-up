@@ -82,7 +82,7 @@ export default function NotificationsPage() {
                 throw new Error('Messaging not supported')
             }
 
-            const registration = await navigator.serviceWorker.register('/api/sw', {
+            const registration = await navigator.serviceWorker.register('/sw.js', {
                 scope: '/',
                 updateViaCache: 'none'
             })
