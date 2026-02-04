@@ -24,8 +24,13 @@ service cloud.firestore {
         && debug(request.resource.data.createdBy) == debug(request.auth.uid)
       allow update: if request.auth != null
         && hasRole("leader")
+        && (
+          (request.resource.data.createdBy == resource.data.createdBy 
+            && request.resource.data.createdByName == resource.data.createdByName)
+          || hasRole("admin") || request.auth.uid == resource.data.createdBy
+        )
       allow delete: if request.auth != null
-        && hasRole("leader")
+        && (resource.data.createdBy == request.auth.uid || hasRole("admin"))
       match /activity/private {
         allow read: if hasRole("member");
       }

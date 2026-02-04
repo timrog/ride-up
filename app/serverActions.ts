@@ -269,25 +269,3 @@ export async function getLeaders() {
         }
     })
 }
-
-export async function transferEventOwnership(eventId: string, newOwnerId: string, newOwnerName: string) {
-    return withSpan('serverAction.transferEventOwnership', async (span) => {
-        span.setAttributes({ eventId, newOwnerId })
-        try {
-            const { adminDb } = await initAuth()
-
-            await adminDb.doc('events/' + eventId).update({
-                createdBy: newOwnerId,
-                createdByName: newOwnerName
-            })
-
-            revalidatePath(`/events/${eventId}`)
-            return { success: true }
-        } catch (error) {
-            span.setAttribute('error.message', error.toString())
-            span.setStatus({ code: SpanStatusCode.ERROR, message: error.toString() })
-            console.error('Error transferring event ownership:', error)
-            return { success: false, error: 'Failed to transfer ownership' }
-        }
-    })
-}

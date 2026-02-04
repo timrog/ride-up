@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { Alert, Autocomplete, AutocompleteItem, Button, Drawer, DrawerBody, DrawerContent, DrawerFooter, DrawerHeader } from "@heroui/react"
-import { getLeaders, transferEventOwnership } from "../../serverActions"
+import { addToast, Alert, Autocomplete, AutocompleteItem, Button, Drawer, DrawerBody, DrawerContent, DrawerFooter, DrawerHeader } from "@heroui/react"
+import { getLeaders } from "../../serverActions"
 import WithAuth from "app/withAuthClient"
+import { db } from "@/lib/firebase/initFirebase"
+import { doc, updateDoc } from "@firebase/firestore"
+import { CalendarEvent } from "app/types"
+import { useRouter } from "next/navigation"
 
 interface Leader {
     uid: string
@@ -22,6 +26,7 @@ export default function TransferOwnerDrawer({ eventId, isOpen, onOpenChange }: T
     const [selectedLeader, setSelectedLeader] = useState<string>('')
     const [isLoading, setIsLoading] = useState(false)
     const [isTransferring, setIsTransferring] = useState(false)
+    const router = useRouter()
 
     useEffect(() => {
         if (isOpen && leaders.length === 0) {
@@ -43,6 +48,14 @@ export default function TransferOwnerDrawer({ eventId, isOpen, onOpenChange }: T
         }
     }
 
+    async function transferEventOwnership(eventId: string, newOwnerId: string, newOwnerName: string): Promise<void> {
+        const updates: Partial<CalendarEvent> = {
+            createdBy: newOwnerId,
+            createdByName: newOwnerName
+        }
+        await updateDoc(doc(db, "events", eventId), updates)
+    }
+
     const handleTransfer = async () => {
         if (!selectedLeader) return
 
@@ -51,16 +64,21 @@ export default function TransferOwnerDrawer({ eventId, isOpen, onOpenChange }: T
 
         setIsTransferring(true)
         try {
-            const result = await transferEventOwnership(eventId, leader.uid, leader.displayName)
-            if (result.success) {
-                onOpenChange(false)
-                setSelectedLeader('')
-                // The page will be revalidated by the server action
-            } else {
-                console.error('Transfer failed:', result.error)
-            }
+            await transferEventOwnership(eventId, leader.uid, leader.displayName)
+
+            addToast({
+                title: "Ownership transferred",
+                color: "success"
+            })
+            onOpenChange(false)
+            router.refresh()
+            setSelectedLeader('')
         } catch (error) {
             console.error('Error transferring ownership:', error)
+            addToast({
+                title: "Transfer failed",
+                color: "danger"
+            })
         } finally {
             setIsTransferring(false)
         }
