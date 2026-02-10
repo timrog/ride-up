@@ -9,6 +9,8 @@ import { db } from '@/lib/firebase/clientApp'
 import { getMessagingInstance } from '@/lib/firebase/clientApp'
 import { getToken } from 'firebase/messaging'
 import { NotificationPreferences } from "app/types"
+import { sendTestNotification } from './serverActions'
+import { addToast } from '@heroui/react'
 
 export default function NotificationsPage() {
     const { user } = useAuth()
@@ -21,6 +23,7 @@ export default function NotificationsPage() {
     })
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
+    const [isSendingTest, setIsSendingTest] = useState(false)
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
 
     useEffect(() => {
@@ -71,6 +74,16 @@ export default function NotificationsPage() {
         }
     }
 
+    async function handleSendTest() {
+        try {
+            setIsSendingTest(true)
+            await new Promise(resolve => setTimeout(resolve, 5000))
+            await sendTestNotification()
+        } finally {
+            setIsSendingTest(false)
+        }
+    }
+
     async function savePreferences() {
         if (!user) return
         
@@ -97,8 +110,6 @@ export default function NotificationsPage() {
             if (!token) {
                 throw new Error('Failed to get FCM token')
             }
-
-            console.log('FCM Token:', token)
 
             const docRef = doc(db, 'notifications', user.uid)
             await setDoc(docRef, {
@@ -259,19 +270,36 @@ export default function NotificationsPage() {
                     </Switch>
                 </div>
 
-                <Button
-                    color="primary"
-                    size="lg"
-                    onPress={savePreferences}
-                    isLoading={isSaving}
-                    isDisabled={notificationPermission !== 'granted'}
-                >
-                    Save Preferences
-                </Button>
+                <div className="flex gap-3">
+                    <Button
+                        color="primary"
+                        size="lg"
+                        onPress={savePreferences}
+                        isLoading={isSaving}
+                        isDisabled={notificationPermission !== 'granted'}
+                    >
+                        Save Preferences
+                    </Button>
+
+                    <Button
+                        color="secondary"
+                        size="lg"
+                        onPress={handleSendTest}
+                        isLoading={isSendingTest}
+                        isDisabled={preferences.tokens.length === 0}
+                    >
+                        Send Test Notification
+                    </Button>
+                </div>
 
                 {notificationPermission !== 'granted' && (
                     <p className="text-warning-600 text-sm">
                         Enable notifications above to save your preferences
+                    </p>
+                )}
+                {preferences.tokens.length === 0 && notificationPermission === 'granted' && (
+                    <p className="text-warning-600 text-sm">
+                        Save your preferences first to enable test notifications
                     </p>
                 )}
             </div>

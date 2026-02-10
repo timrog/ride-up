@@ -16,45 +16,44 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig)
 const messaging = firebase.messaging()
 
-// messaging.onBackgroundMessage((payload) => {
-//     console.log('Received background message:', payload)
+messaging.onBackgroundMessage((payload) => {
+    console.log('Received background message:', payload)
     
-//     const notificationTitle = payload.notification?.title || payload.data?.title || 'New notification'
-//     const notificationOptions = {
-//         body: payload.notification?.body || payload.data?.body || '',
-//         icon: payload.notification?.icon || payload.data?.icon || '/icon.png',
-//         badge: payload.notification?.badge || payload.data?.badge || '/badge.png',
-//         tag: payload.data?.tag || 'notification',
-//         data: {
-//             url: payload.data?.url || payload.fcmOptions?.link || '/',
-//             eventId: payload.data?.eventId
-//         }
-//     }
+    const notificationTitle = payload.notification?.title || payload.data?.title || 'New notification'
+    const notificationOptions = {
+        body: payload.notification?.body || payload.data?.body || '',
+        icon: payload.notification?.icon || payload.data?.icon || '/icon.png',
+        badge: payload.notification?.badge || payload.data?.badge || '/badge.png',
+        tag: payload.data?.tag || 'notification',
+        data: {
+            url: payload.data?.url || payload.fcmOptions?.link || '/',
+            eventId: payload.data?.eventId
+        }
+    }
     
-//     return self.registration.showNotification("BG" + notificationTitle, notificationOptions)
-// })
+    return self.registration.showNotification("BACKGROUND: " + notificationTitle, notificationOptions)
+})
 
-// self.addEventListener('notificationclick', function (event) {
-//     console.log('Notification clicked:', event.notification.data)
-//     event.notification.close()
+self.addEventListener('notificationclick', function (event: any) {
+    console.log('Notification clicked:', event.notification.data)
+    event.notification.close()
 
-//     const urlToOpen = (event.notification.data && event.notification.data.url) || '/'
+    const urlToOpen = (event.notification.data && event.notification.data.url) || '/'
 
-//     event.waitUntil(
-//         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-//             for (let i = 0; i < clientList.length; i++) {
-//                 const client = clientList[i]
-//                 if (client.url === urlToOpen && 'focus' in client) {
-//                     return client.focus()
-//                 }
-//             }
-//             if (clientList.length)
-//             {
-//                 return clientList[0].focus()
-//             }
-//             if (clients.openWindow) {
-//                 return clients.openWindow(urlToOpen)
-//             }
-//         })
-//     )
-// })
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+            for (let i = 0; i < clientList.length; i++) {
+                const client = clientList[i]
+                if (client.url === urlToOpen && 'focus' in client) {
+                    return client.focus()
+                }
+            }
+            if (clientList.length) {
+                return clientList[0].focus()
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(urlToOpen)
+            }
+        })
+    )
+})

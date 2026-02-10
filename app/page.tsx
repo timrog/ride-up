@@ -14,7 +14,6 @@ import TagFilter from "./TagFilter"
 import { Button } from "@heroui/button"
 import Link from "next/link"
 import WithAuth from "./withAuthClient"
-import CalendarButtons from "./CalendarButtons"
 
 async function getUpcomingEvents(filterTags: string[]) {
     const eventsRef = collection(db, 'events')
