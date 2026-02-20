@@ -153,7 +153,7 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
                 {activity.comments?.map(c => (
                     <Card
                         className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
-                        <CardHeader className="font-black flex gap-2">
+                        <CardHeader className="font-black flex gap-2 z-0">
                             <Avatar src={c.avatarUrl || undefined} />
                             <span>{c.name} &middot; {formatRelative(c.createdAt.toDate())}</span>
                         </CardHeader>

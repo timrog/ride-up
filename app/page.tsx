@@ -77,11 +77,10 @@ export default async function EventList({
                             {events.map((event) => (
                                 <a href={`/events/${event.id}`} key={event.id} className="no-underline text-inherit">
                                     <Card key={event.id} isHoverable>
-                                        <CardHeader className="flex flex-row gap-2 flex-wrap nowrap">
+                                        <CardHeader className="flex flex-row gap-2 flex-wrap nowrap z-0">
                                             <IconInline icon={ClockIcon}>{toFormattedTime(event.date.toDate())}</IconInline>
                                             <IconInline icon={MapPinIcon}>{event.location}</IconInline>
                                             {event.isCancelled && <Chip color="danger">Cancelled</Chip>}
-
                                         </CardHeader>
                                         <CardBody className="text-lg font-bold">
                                             {event.title}
