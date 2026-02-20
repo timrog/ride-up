@@ -22,12 +22,6 @@ export default function FirebaseAuth() {
 
     const currentPath = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '')
 
-    if (loading) {
-        return (
-            <Spinner size="sm" />
-        )
-    }
-
     return <>
         <Dropdown placement="bottom-end">
             <DropdownTrigger>
@@ -36,22 +30,15 @@ export default function FirebaseAuth() {
                     className="transition-transform"
                     color="secondary"
                     name={initials}
-                    size="lg"
+                    size="md"
                     src={user?.photoURL || undefined}
                     isBordered={true}
                 />
             </DropdownTrigger>
             <DropdownMenu aria-label="Profile Actions" variant="flat">
-                <DropdownItem key="list" href="/">Upcoming rides</DropdownItem>
                 {!user && <DropdownItem key="login" href={`/user?returnUrl=${encodeURIComponent(currentPath)}`}>Sign in</DropdownItem> || null}
                 {user && <DropdownItem key="user" href={`/user`}>Your profile</DropdownItem> || null}
-                <DropdownItem key="postRide" color="primary" href="/create">Post a ride</DropdownItem>
-                <DropdownItem key="help" href="/about">Help</DropdownItem>
                 {user && <DropdownItem key="logout" color="danger" onPress={handleSignOut}>Sign out</DropdownItem>}
-                {roles?.includes('admin') ?
-                    <DropdownItem key="admin" color="primary" href="/admin">Admin diagnostics</DropdownItem> : null}
-                {roles?.includes('admin') ?
-                    <DropdownItem key="notifications" color="primary" href="/notifications">Notifications (beta)</DropdownItem> : null}
             </DropdownMenu>
         </Dropdown>
     </>

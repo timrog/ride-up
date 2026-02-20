@@ -1,10 +1,13 @@
 'use client'
-import { Navbar, NavbarBrand, NavbarContent } from "@heroui/navbar"
+import { Navbar, NavbarBrand, NavbarContent, NavbarMenu, NavbarMenuItem, NavbarMenuToggle } from "@heroui/navbar"
 import { PlusIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/outline"
 import { Button, Link } from "@heroui/react"
+import { Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger } from "@heroui/dropdown"
 import WithAuth from "app/withAuthClient"
 import { Suspense } from "react"
 import FirebaseAuth from "app/firebaseAuth"
+import { useRoles } from "app/clientAuth"
+import { usePathname, useSearchParams } from "next/navigation"
 
 const Triburger = (<svg width="28" height="28" viewBox="0 0 7.4083 7.4083">
   <g fill="none" strokeLinecap="round" strokeWidth="1.6578">
@@ -15,6 +18,12 @@ const Triburger = (<svg width="28" height="28" viewBox="0 0 7.4083 7.4083">
 </svg>)
 
 export default function () {
+  const { currentUser: user, roles } = useRoles()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const currentPath = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '')
+  const itemStyle = { title: "text-large font-bold text-gray-800" }
+
   return (
     <Navbar isBordered isBlurred height={100}
       className="bg-primary text-white backdrop-blur-lg"
@@ -37,6 +46,20 @@ export default function () {
         <Suspense fallback={<div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />}>
           <FirebaseAuth />
         </Suspense>
+        <Dropdown placement="bottom-end">
+          <DropdownTrigger>{Triburger}</DropdownTrigger>
+          <DropdownMenu aria-label="Profile Actions" variant="flat">
+            <DropdownItem key="list" href="/" classNames={itemStyle} title="Upcoming rides"></DropdownItem>
+            {!user && <DropdownItem key="login" href={`/user?returnUrl=${encodeURIComponent(currentPath)}`} classNames={itemStyle}>Sign in</DropdownItem> || null}
+            {user && <DropdownItem key="user" href={`/user`} classNames={itemStyle}>Your profile</DropdownItem> || null}
+            <DropdownItem key="postRide" color="primary" href="/create" classNames={itemStyle}>Post a ride</DropdownItem>
+            <DropdownItem key="help" href="/about" classNames={itemStyle} showDivider>Help</DropdownItem>
+            {roles?.includes('admin') ?
+              <DropdownItem key="admin" color="primary" href="/admin" classNames={itemStyle}>Admin diagnostics</DropdownItem> : null}
+            {roles?.includes('admin') ?
+              <DropdownItem key="notifications" color="primary" href="/notifications" classNames={itemStyle}>Notifications (beta)</DropdownItem> : null}
+          </DropdownMenu>
+        </Dropdown>
       </NavbarContent>
     </Navbar>
 
