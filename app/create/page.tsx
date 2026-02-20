@@ -4,9 +4,9 @@ import CreateEventClient from "./CreateEventClient"
 import { Alert } from "@heroui/alert"
 
 export default async function CreateEvent() {
-    const { roles } = await getUser()
+    const { roles, currentUser } = await getUser()
 
-    if (!roles.includes('member')) 
+    if (!currentUser) 
         redirect('/user?returnUrl=/create')
 
     else if (!roles.includes('leader')) {
