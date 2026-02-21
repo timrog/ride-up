@@ -269,3 +269,15 @@ export async function getLeaders() {
         }
     })
 }
+
+export async function checkPhoneNumberExists(phoneNumber: string): Promise<{ exists: boolean }> {
+    try {
+        await getAdminApp().auth().getUserByPhoneNumber(phoneNumber)
+        return { exists: true }
+    } catch (error: unknown) {
+        if ((error as { code?: string }).code === 'auth/user-not-found') {
+            return { exists: false }
+        }
+        throw error
+    }
+}
