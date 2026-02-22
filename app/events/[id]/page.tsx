@@ -35,7 +35,6 @@ const EventPage = async ({
         && !event.isCancelled
 
     const Details = () => <>
-        <Link href="/"><IconLine icon={ChevronLeftIcon}>All events</IconLine></Link>
         <h1 className="text-left mb-3">{event.title}</h1>
 
         <div className="md:grid md:grid-cols-2 md:gap-8"

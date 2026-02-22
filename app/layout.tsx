@@ -3,6 +3,7 @@ import { Nunito, Big_Shoulders } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
 import Navbar from "@/components/Navbar"
+import DrawerPortal from "./DrawerPortal"
 
 const sansFont = Nunito({
   variable: "--font-sans",
@@ -27,10 +28,12 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({
-  children,
+  main, children
 }: Readonly<{
-  children: React.ReactNode
+  main: React.ReactNode,
+  children?: React.ReactNode
 }>) {
+  console.log('Rendering RootLayout')
   return (
     <html lang="en">
       <body className={`${sansFont.variable} ${headingFont.variable}`}>
@@ -38,8 +41,11 @@ export default function RootLayout({
           <div className="relative flex flex-col h-screen">
             <Navbar />
             <main>
-              {children}
+              {main}
             </main>
+            <DrawerPortal>
+              {children}
+            </DrawerPortal>
           </div>
         </Providers>
       </body>
