@@ -1,6 +1,7 @@
 'use client'
 
 import { Alert, Button, Drawer, DrawerBody, DrawerContent, DrawerFooter, DrawerHeader, Link, Progress } from "@heroui/react"
+import NextLink from "next/link"
 import { useEffect, useState } from "react"
 import { refreshMembership } from "app/refreshMembership"
 import { getAuth } from "firebase/auth"
@@ -82,7 +83,7 @@ export default function MembershipHelp() {
                     </>}
                     {state == 'failure' && <>
                         <DrawerBody>
-                            <p>We couldn't verify your membership. Please ensure you've joined or renewed your membership. If the problem persists, please <a href="/about">contact us</a>.</p>
+                            <p>We couldn't verify your membership. Please ensure you've joined or renewed your membership. If the problem persists, please <NextLink href="/about">contact us</NextLink>.</p>
                         </DrawerBody>
                         <DrawerFooter>
                             <Button color="secondary" onPress={() => setIsOpen(false)}>Close</Button>

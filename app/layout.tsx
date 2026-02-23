@@ -22,8 +22,8 @@ export const metadata: Metadata = {
   description: "VCGH event listing and sign-up",
   icons: {
     icon: "/icon.png",
-    shortcut: "/icon.png",
-    apple: "/icon.png"
+    shortcut: "/app-icon.png",
+    apple: "/app-icon.png"
   }
 }
 
@@ -33,7 +33,6 @@ export default function RootLayout({
   main: React.ReactNode,
   children?: React.ReactNode
 }>) {
-  console.log('Rendering RootLayout')
   return (
     <html lang="en">
       <body className={`${sansFont.variable} ${headingFont.variable}`}>

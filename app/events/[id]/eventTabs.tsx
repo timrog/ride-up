@@ -4,10 +4,11 @@ import { ReactNode, useState } from "react"
 import Activity from "./activity"
 import RouteEmbed from "./routeEmbed"
 import WithAuth from "app/withAuthClient"
-import { Button, Link } from "@heroui/react"
+import { Button } from "@heroui/react"
 import { ChatBubbleLeftIcon, MapIcon, PencilIcon } from "@heroicons/react/24/outline"
 import { IconInline } from "@/components/IconLine"
 import MembershipHelp from "../../user/MembershipHelp"
+import Link from "next/link"
 
 interface EventTabsProps {
     id: string
@@ -67,9 +68,7 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
                         className={`${activeTab !== tab.key ? 'hidden' : ''} 
                             md:block md:border-b border-gray-200 last:border-b-0
                              bg-${tab.bg}`}>
-                        <div className="container mx-auto px-4 py-8">
-                            {tab.content}
-                        </div>
+                        {tab.content}
                     </section>
                 ))}
             </div>

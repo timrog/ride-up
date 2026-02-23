@@ -1,31 +1,35 @@
-import React from 'react'
-import { getDoc, doc, DocumentSnapshot } from 'firebase/firestore'
+'use client'
+import React, { useState, useEffect } from 'react'
+import { getDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import { CalendarEvent } from 'app/types'
 import { toFormattedDate, toFormattedTime } from "app/format"
-import { ChevronLeftIcon, MapPinIcon, UserCircleIcon } from "@heroicons/react/24/outline"
+import { MapPinIcon, UserCircleIcon } from "@heroicons/react/24/outline"
 import { IconLine } from "@/components/IconLine"
-import WithAuth from "app/withAuthServer"
+import WithAuth from "app/withAuthClient"
 import { Alert } from "@heroui/alert"
 import EditButtons from "./EditButtons"
 import FormatHtml from "app/FormatHtml"
 import EventTabs from "./eventTabs"
 import { Chip } from "@heroui/chip"
 import Link from "next/link"
-import { Metadata } from "next"
+import { useParams } from "next/navigation"
+import { Spinner } from "@heroui/react"
 
-async function getEvent(id: string) {
-    const eventDoc = await getDoc(doc(db, 'events', id)) as DocumentSnapshot<CalendarEvent>
-    return eventDoc.data()
-}
+const EventPage = () => {
+    const { id } = useParams<{ id: string }>()
+    const [event, setEvent] = useState<CalendarEvent | null | undefined>(undefined)
 
-const EventPage = async ({
-    params
-}: {
-    params: Promise<{ id: string }>
-}) => {
-    const { id } = await params
-    const event = await getEvent(id)
+    useEffect(() => {
+        if (!id) return
+        getDoc(doc(db, 'events', id)).then(snapshot => {
+            setEvent(snapshot.exists() ? snapshot.data() as CalendarEvent : null)
+        })
+    }, [id])
+
+    if (event === undefined) {
+        return <div className="flex justify-center my-16"><Spinner size="lg" /></div>
+    }
 
     if (!event) {
         return <div className="text-center">Event not found</div>
@@ -61,7 +65,7 @@ const EventPage = async ({
                 </WithAuth>
             </div>
             <div><FormatHtml content={event.description} /></div>
-        </div >
+        </div>
     </>
 
     return (
@@ -75,16 +79,3 @@ const EventPage = async ({
 }
 
 export default EventPage
-
-export async function generateMetadata({
-    params
-}: {
-    params: Promise<{ id: string }>
-}): Promise<Metadata> {
-    const { id } = await params
-    const event = await getEvent(id)
-
-    return {
-        title: `${event?.title} – VCGH Signups`,
-    }
-}

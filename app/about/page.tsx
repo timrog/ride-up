@@ -1,12 +1,13 @@
+'use client'
 import { IconLine } from "@/components/IconLine"
 import ChevronLeftIcon from "@heroicons/react/24/outline/ChevronLeftIcon"
-import WithAuth from "app/withAuthServer"
+import WithAuth from "app/withAuthClient"
 import Link from "next/link"
 import FeedbackForm from "./FeedbackForm"
 
-export default async () => {
-    const email = process.env.CONTACT_EMAIL
-    const whatsapp = process.env.CONTACT_WHATSAPP
+export default function AboutPage() {
+    const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL
+    const whatsapp = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP
 
     return (
         <div className="container px-4 sm:mx-auto my-16">

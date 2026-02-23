@@ -1,10 +1,8 @@
-
-'use server'
+'use client'
 import { collection, query, getDocs, Timestamp, where, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { CalendarEvent } from '../types'
-import { } from "../installPrompt"
 import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
 import { toFormattedDate, toFormattedTime } from "../format"
 import { ClockIcon, MapPinIcon } from "@heroicons/react/24/outline"
@@ -14,8 +12,13 @@ import TagFilter from "../TagFilter"
 import { Button } from "@heroui/button"
 import Link from "next/link"
 import WithAuth from "../withAuthClient"
+import { useSearchParams } from 'next/navigation'
 
-async function getUpcomingEvents(filterTags: string[]) {
+type EventWithId = CalendarEvent & { id: string }
+
+const eventsCache = new Map<string, [string, EventWithId[]][]>()
+
+async function fetchUpcomingEvents(filterTags: string[]): Promise<[string, EventWithId[]][]> {
     const eventsRef = collection(db, 'events')
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -24,7 +27,7 @@ async function getUpcomingEvents(filterTags: string[]) {
         orderBy('date', 'asc'))
 
     const querySnapshot = await getDocs(q)
-    let events = querySnapshot.docs.map((doc) => ({
+    let events: EventWithId[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data() as CalendarEvent
     }))
@@ -40,22 +43,25 @@ async function getUpcomingEvents(filterTags: string[]) {
         acc[dateKey] = acc[dateKey] || []
         acc[dateKey].push(event)
         return acc
-    }, {} as Record<string, typeof events>)
+    }, {} as Record<string, EventWithId[]>)
 
-    const eventsByDay = Object.entries(groupedEvents)
+    return Object.entries(groupedEvents)
         .sort(([dateA], [dateB]) => dateA > dateB ? 1 : -1)
-
-    return eventsByDay
 }
 
-export default async function EventList({
-    searchParams
-}: {
-    searchParams: Promise<{ tags?: string }>
-}) {
-    const { tags } = await searchParams
-    const filterTags = tags ? tags.split(',').filter(Boolean) : []
-    const events = await getUpcomingEvents(filterTags)
+export default function EventList() {
+    const searchParams = useSearchParams()
+    const tags = searchParams.get('tags')
+    const cacheKey = tags ?? ''
+    const [events, setEvents] = useState<[string, EventWithId[]][]>(eventsCache.get(cacheKey) ?? [])
+
+    useEffect(() => {
+        const filterTags = tags ? tags.split(',').filter(Boolean) : []
+        fetchUpcomingEvents(filterTags).then(data => {
+            eventsCache.set(cacheKey, data)
+            setEvents(data)
+        })
+    }, [tags])
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -75,13 +81,12 @@ export default async function EventList({
                         <h2 className="text-xl font-bold"> {toFormattedDate(new Date(date))} </h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                             {events.map((event) => (
-                                <a href={`/events/${event.id}`} key={event.id} className="no-underline text-inherit">
+                                <Link href={`/events/${event.id}`} key={event.id} className="no-underline text-inherit">
                                     <Card key={event.id} isHoverable>
                                         <CardHeader className="flex flex-row gap-2 flex-wrap nowrap">
                                             <IconInline icon={ClockIcon}>{toFormattedTime(event.date.toDate())}</IconInline>
                                             <IconInline icon={MapPinIcon}>{event.location}</IconInline>
                                             {event.isCancelled && <Chip color="danger">Cancelled</Chip>}
-
                                         </CardHeader>
                                         <CardBody className="text-lg font-bold">
                                             {event.title}
@@ -92,16 +97,15 @@ export default async function EventList({
                                             ))}
                                         </CardFooter>
                                     </Card>
-                                </a>
+                                </Link>
                             ))}
                         </div>
                     </div>
                 ))}
-            </div>            {
-                events.length === 0 && (
-                    <p className="text-center">No upcoming events found.</p>
-                )
-            }
-        </div >
+            </div>
+            {events.length === 0 && (
+                <p className="text-center">No upcoming events found.</p>
+            )}
+        </div>
     )
-};
+}

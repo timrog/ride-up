@@ -29,6 +29,7 @@
   --font-mono: var(--font-geist-mono);
   --radius-lg: 0.5rem;
   --spacing-128: 32rem;
+  --container-5xl: 80rem;
 }
 
 @media (prefers-color-scheme: dark) {

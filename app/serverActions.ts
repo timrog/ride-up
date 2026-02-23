@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore'
-import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity } from './types'
+import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity, MemberRole } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import admin from 'firebase-admin'
 import { withSpan } from '@/lib/tracing'
@@ -279,5 +279,41 @@ export async function checkPhoneNumberExists(phoneNumber: string): Promise<{ exi
             return { exists: false }
         }
         throw error
+    }
+}
+
+export interface AdminUser {
+    uid: string
+    email: string | null
+    displayName: string | null
+    phoneNumber: string | null
+    customClaims: Record<string, unknown> | null
+    creationTime: string
+    lastSignInTime: string | null
+}
+
+export async function listAdminUsers(): Promise<{ success: true; users: AdminUser[] } | { success: false; error: string }> {
+    try {
+        const { currentUser } = await getAuthenticatedAppForUser()
+        if (!currentUser) return { success: false, error: 'Unauthorized' }
+        const idToken = await currentUser.getIdTokenResult()
+        const roles = (idToken.claims['roles'] || []) as MemberRole[]
+        if (!roles.includes('admin')) {
+            return { success: false, error: 'Unauthorized' }
+        }
+        const result = await getAdminApp().auth().listUsers()
+        const users: AdminUser[] = result.users.map(u => ({
+            uid: u.uid,
+            email: u.email ?? null,
+            displayName: u.displayName ?? null,
+            phoneNumber: u.phoneNumber ?? null,
+            customClaims: (u.customClaims as Record<string, unknown>) ?? null,
+            creationTime: u.metadata.creationTime,
+            lastSignInTime: u.metadata.lastSignInTime ?? null,
+        }))
+        return { success: true, users }
+    } catch (error) {
+        console.error('Error listing admin users:', error)
+        return { success: false, error: 'Failed to list users' }
     }
 }

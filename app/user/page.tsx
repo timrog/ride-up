@@ -4,7 +4,7 @@ import { Spinner } from "@heroui/react"
 import SignInContent from './SignInContent'
 import { useRoles } from "app/clientAuth"
 import UserProfile from "./UserProfile"
-import { redirect, useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 function SignInFallback() {
     return (
@@ -20,7 +20,7 @@ export default function UserPage() {
     const router = useRouter()
     const returnUrl = searchParams.get('returnUrl')
     if (currentUser && returnUrl) {
-        window.location.href = returnUrl
+        router.push(returnUrl)
         return null
     }
 

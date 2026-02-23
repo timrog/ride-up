@@ -17,7 +17,7 @@ export function ForegroundMessaging() {
                     const notificationTitle = payload.notification?.title || payload.data?.title || 'New notification'
                     const notificationOptions = {
                         body: payload.notification?.body || payload.data?.body || '',
-                        icon: payload.notification?.icon || payload.data?.icon || '/icon.png',
+                        icon: payload.notification?.icon || payload.data?.icon || '/app-icon.png',
                         tag: payload.data?.tag || 'notification',
                         data: {
                             url: payload.data?.url || '/',
