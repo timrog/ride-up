@@ -7,7 +7,7 @@ import WithAuth from "app/withAuthClient"
 import { db } from "@/lib/firebase/initFirebase"
 import { doc, updateDoc } from "@firebase/firestore"
 import { CalendarEvent } from "app/types"
-import { useRouter } from "next/navigation"
+import { useRefresh } from "app/providers"
 
 interface Leader {
     uid: string
@@ -26,7 +26,7 @@ export default function TransferOwnerDrawer({ eventId, isOpen, onOpenChange }: T
     const [selectedLeader, setSelectedLeader] = useState<string>('')
     const [isLoading, setIsLoading] = useState(false)
     const [isTransferring, setIsTransferring] = useState(false)
-    const router = useRouter()
+    const { invalidate } = useRefresh()
 
     useEffect(() => {
         if (isOpen && leaders.length === 0) {
@@ -71,7 +71,7 @@ export default function TransferOwnerDrawer({ eventId, isOpen, onOpenChange }: T
                 color: "success"
             })
             onOpenChange(false)
-            router.refresh()
+            invalidate()
             setSelectedLeader('')
         } catch (error) {
             console.error('Error transferring ownership:', error)

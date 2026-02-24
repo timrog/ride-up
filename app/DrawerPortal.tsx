@@ -24,7 +24,7 @@ export default function DrawerPortal({ children }: { children: React.ReactNode }
                 <DrawerHeader>
                     <Button isIconOnly as={Link} href="/" variant="light" color="secondary" className="-ml-2"><ChevronLeftIcon height={36} /></Button>
                 </DrawerHeader>
-                <DrawerBody>
+                <DrawerBody className="p-0">
                     {children}
                 </DrawerBody>
             </DrawerContent>

@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import { CalendarEvent } from 'app/types'
@@ -14,21 +14,32 @@ import EventTabs from "./eventTabs"
 import { Chip } from "@heroui/chip"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { Spinner } from "@heroui/react"
+import { Skeleton } from "@heroui/react"
+import { useRefresh } from "app/providers"
 
 const EventPage = () => {
     const { id } = useParams<{ id: string }>()
+    const { refreshKey } = useRefresh()
     const [event, setEvent] = useState<CalendarEvent | null | undefined>(undefined)
 
-    useEffect(() => {
+    const fetchEvent = useCallback(() => {
         if (!id) return
         getDoc(doc(db, 'events', id)).then(snapshot => {
             setEvent(snapshot.exists() ? snapshot.data() as CalendarEvent : null)
         })
-    }, [id])
+    }, [id, refreshKey])
+
+    useEffect(() => { fetchEvent() }, [fetchEvent])
 
     if (event === undefined) {
-        return <div className="flex justify-center my-16"><Spinner size="lg" /></div>
+        return <div className="px-8">
+            <Skeleton className="my-4 w-full h-12" />
+            <div className="md:grid md:grid-cols-2 md:gap-8"
+                style={{ gridTemplateColumns: '1fr 2fr' }}>
+                <Skeleton className="h-100" />
+                <Skeleton className="h-100" />
+            </div>
+        </div>
     }
 
     if (!event) {
@@ -69,12 +80,10 @@ const EventPage = () => {
     </>
 
     return (
-        <div>
             <EventTabs id={id}
                 details={<Details />}
                 routeLink={event.routeLink}
-                isActive={isActive} />
-        </div>
+            isActive={isActive} />
     )
 }
 

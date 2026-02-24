@@ -68,8 +68,9 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
                         className={`${activeTab !== tab.key ? 'hidden' : ''} 
                             md:block md:border-b border-gray-200 last:border-b-0
                              bg-${tab.bg}`}>
+                        <div className="container mx-auto px-6 py-6">
                         {tab.content}
-                    </section>
+                        </div>                    </section>
                 ))}
             </div>
         </>

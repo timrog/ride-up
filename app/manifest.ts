@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
     return {
         name: 'Ride Up',
-        short_name: 'VCGH Ride',
+        short_name: 'VCGH',
         description: 'Sign up for rides',
         start_url: '/',
         display: 'standalone',

@@ -5,6 +5,7 @@ import { duplicateEvent } from "../../serverActions"
 import { Button, RadioGroup, Radio, DatePicker, Spinner, addToast } from "@heroui/react"
 import { Drawer, DrawerBody, DrawerContent, DrawerFooter, DrawerHeader } from "@heroui/drawer"
 import { today, getLocalTimeZone, DateValue } from "@internationalized/date"
+import { useRefresh } from "app/providers"
 
 type DuplicateMode = "single" | "weekly"
 
@@ -36,6 +37,7 @@ export default function DuplicateEventDrawer({ eventId, isOpen, onOpenChange }: 
 
     const handleModeChange = (val: DuplicateMode) => setForm(f => ({ ...f, mode: val }))
     const handleTargetDateChange = (val: DateValue) => setForm(f => ({ ...f, targetDate: val, error: null, success: null }))
+    const { invalidate } = useRefresh()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -58,6 +60,7 @@ export default function DuplicateEventDrawer({ eventId, isOpen, onOpenChange }: 
             })
 
             onOpenChange(false)
+            invalidate()
         } catch (err: any) {
             console.error('Duplication error:', err)
             addToast({
@@ -88,17 +91,17 @@ export default function DuplicateEventDrawer({ eventId, isOpen, onOpenChange }: 
                         <DrawerBody>
                             <div className="flex flex-col gap-4">
                                 <RadioGroup
-                                    label="Duplication mode"
+                                    label="Make a copy of this..."
                                     orientation="horizontal"
                                     value={form.mode}
                                     onValueChange={val => handleModeChange(val as DuplicateMode)}
                                 >
-                                    <Radio value="single">Single date</Radio>
-                                    <Radio value="weekly">Every week until...</Radio>
+                                    <Radio value="single">on a single date</Radio>
+                                    <Radio value="weekly">every week until...</Radio>
                                 </RadioGroup>
 
                                 <DatePicker
-                                    label="Target date"
+                                    label="Date"
                                     aria-label="Target date"
                                     value={form.targetDate as any}
                                     minValue={minDate}

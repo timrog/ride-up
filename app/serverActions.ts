@@ -38,10 +38,9 @@ export async function duplicateEvent(params: DuplicateParams) {
 
     return withSpan('serverAction.duplicateEvent', async (span) => {
         span.setAttributes({ eventId, mode })
-        const { db, currentUser } = await getAuthenticatedAppForUser()
-
-        const snap = await getDoc(doc(db, 'events', eventId))
-        if (!snap.exists()) {
+        const { adminDb, currentUser } = await initAuth()
+        const snap = await adminDb.collection('events').doc(eventId).get()
+        if (!snap.exists) {
             return { success: false, error: 'Source event not found' }
         }
         const source = snap.data() as CalendarEvent
@@ -69,18 +68,18 @@ export async function duplicateEvent(params: DuplicateParams) {
             const newDoc: Omit<CalendarEvent, 'id'> = {
                 ...source,
                 isCancelled: false,
-                date: Timestamp.fromDate(d),
-                createdAt: Timestamp.now(),
+                date: admin.firestore.Timestamp.fromDate(d) as Timestamp,
+                createdAt: admin.firestore.Timestamp.now() as Timestamp,
                 createdBy: currentUser?.uid!,
                 createdByName: currentUser?.displayName || 'Unknown',
                 linkId: source.linkId || eventId,
             }
 
-            return addDoc(collection(db, 'events'), newDoc)
+            return adminDb.collection('events').add(newDoc).then(ref => batchResults.push(ref.id))
         }))
 
         if (source.linkId !== eventId) {
-            await updateDoc(doc(db, 'events', eventId), { linkId: eventId })
+            await adminDb.collection('events').doc(eventId).update({ linkId: eventId })
         }
 
         revalidatePath(`/events/${eventId}`)

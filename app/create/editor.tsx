@@ -2,11 +2,15 @@ import { Alert, Autocomplete, AutocompleteItem, Button, DatePicker, Input, Selec
 import { CalendarEvent } from "app/types"
 import { getAuth } from "firebase/auth"
 import { Timestamp } from "firebase/firestore"
-import React, { ChangeEvent, useState } from "react"
+import React, { ChangeEvent, createContext, useContext, useEffect, useState } from "react"
 import SelectableTags from "@/components/SelectableTags"
 
 import { CalendarDate, DateValue, fromDate, getLocalTimeZone, Time, toCalendarDate, toCalendarDateTime, today, toTime } from "@internationalized/date"
 import { defaultLocations } from "app/tags"
+import { XCircleIcon } from "@heroicons/react/24/outline"
+import { IconInline, IconLine } from "@/components/IconLine"
+import { useCancelEvent } from "app/events/[id]/useCancelEvent"
+import { useRefresh } from "app/providers"
 
 const UK_POSTCODE_REGEX = /[A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2}/i
 
@@ -19,21 +23,71 @@ type FormDataType = {
     routeLink: string
     location: string
     tags: string[]
+    isCancelled?: boolean
+}
+
+type DraftContextType = {
+    draft: FormDataType | null
+    setDraft: (data: FormDataType) => void
+    clearDraft: () => void
+}
+
+const DraftEventContext = createContext<DraftContextType>({
+    draft: null,
+    setDraft: () => { },
+    clearDraft: () => { }
+})
+
+export function DraftEventProvider({ children }: { children: React.ReactNode }) {
+    const [draft, setDraftState] = useState<FormDataType | null>(null)
+    return (
+        <DraftEventContext.Provider value={{
+            draft,
+            setDraft: setDraftState,
+            clearDraft: () => setDraftState(null)
+        }}>
+            {children}
+        </DraftEventContext.Provider>
+    )
+}
+
+export function useDraftEvent() {
+    return useContext(DraftEventContext)
 }
 
 export default function EventForm({ event, onSubmit }
     : { event?: CalendarEvent, onSubmit: (event: Partial<CalendarEvent>) => void }) {
 
-    const [formData, setFormData] = useState<FormDataType>({
-        title: event?.title || '',
-        date: event ? toCalendarDate(fromDate(event.date.toDate(), getLocalTimeZone())) : undefined,
-        time: event ? toTime(fromDate(event?.date.toDate(), getLocalTimeZone())) : undefined,
-        duration: event?.duration?.toString() || '180',
-        description: event?.description || '',
-        routeLink: event?.routeLink || '',
-        location: event?.location || '',
-        tags: event?.tags || []
-    })
+    const { draft, setDraft, clearDraft } = useDraftEvent()
+
+    const initialFormData: FormDataType = event ? {
+        title: event.title,
+        date: toCalendarDate(fromDate(event.date.toDate(), getLocalTimeZone())),
+        time: toTime(fromDate(event.date.toDate(), getLocalTimeZone())),
+        duration: event.duration?.toString() || '180',
+        description: event.description || '',
+        routeLink: event.routeLink || '',
+        location: event.location || '',
+        tags: event.tags || [],
+        isCancelled: event.isCancelled || false
+    } : draft ?? {
+        title: '',
+        date: undefined,
+        time: undefined,
+        duration: '180',
+        description: '',
+        routeLink: '',
+        location: '',
+        tags: []
+    }
+
+    const [formData, setFormData] = useState<FormDataType>(initialFormData)
+
+    useEffect(() => {
+        if (!event) setDraft(formData)
+    }, [formData])
+
+    const { invalidate } = useRefresh()
 
     function handleSubmit(e) {
         e.preventDefault()
@@ -49,11 +103,12 @@ export default function EventForm({ event, onSubmit }
             newDoc.createdAt = Timestamp.now()
             newDoc.createdBy = getAuth().currentUser?.uid || ''
             newDoc.createdByName = getAuth().currentUser?.displayName || 'Anonymous'
+            clearDraft()
         }
         onSubmit(newDoc)
     }
 
-    const handleValueChange = (name: keyof FormDataType) => (value: string | string[]) =>
+    const handleValueChange = <K extends keyof FormDataType>(name: K) => (value: FormDataType[K]) =>
         setFormData(prevState => ({
             ...prevState,
             [name]: value
@@ -66,7 +121,6 @@ export default function EventForm({ event, onSubmit }
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 mx-auto max-w-2xl">
-
             <Input
                 autoFocus
                 label="Event Title"
@@ -162,9 +216,17 @@ export default function EventForm({ event, onSubmit }
                 />
             </div>
 
-            <Button type="submit" color="primary">
-                {event ? 'Save' : 'Create Event'}
-            </Button>
+            <div className="flex flex-row gap-1 w-full">
+                <Button type="submit" color="primary">
+                    {event ? 'Save' : 'Create Event'}
+                </Button>
+
+                {event && !event.isCancelled &&
+                    <Button type="submit" color="danger" onPress={() => handleValueChange('isCancelled')(true)} className="ml-auto">
+                        <XCircleIcon height={18} />Cancel event
+                    </Button>
+                }
+            </div>
         </form >
     )
 }

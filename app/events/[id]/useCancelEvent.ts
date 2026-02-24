@@ -1,8 +1,8 @@
 'use client'
 
-import { useRouter } from "next/navigation"
 import { doc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase/clientApp"
+import { useRefresh } from "app/providers"
 
 export async function cancelEvent(id: string, isCancelled: boolean) {
     const event = doc(db, 'events', id)
@@ -11,12 +11,11 @@ export async function cancelEvent(id: string, isCancelled: boolean) {
 }
 
 export function useCancelEvent(eventId: string, isCancelled: boolean) {
-    const router = useRouter()
-
+    const { invalidate } = useRefresh()
     async function handleCancel() {
         try {
             await cancelEvent(eventId, !isCancelled)
-            router.refresh()
+            invalidate()
         } catch (error) {
             console.error("Failed to cancel event:", error)
         }

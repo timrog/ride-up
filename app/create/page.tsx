@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRoles } from 'app/clientAuth'
-import CreateEvent from "./CreateEventClient"
+import CreateEventClient from "./CreateEvent"
 import { Alert } from "@heroui/alert"
 import { Spinner } from "@heroui/react"
 
@@ -22,7 +22,7 @@ export default function CreateEvent() {
 
     if (!roles.includes('leader')) {
         return (
-            <div className="container px-4 sm:mx-auto my-16">
+            <div>
                 <h1>Want to post a ride?</h1>
                 <Alert color="warning">
                     We welcome everyone to post rides. There are just a few steps to go through.
@@ -33,9 +33,9 @@ export default function CreateEvent() {
     }
 
     return (
-        <div className="container px-4 sm:mx-auto my-16">
+        <div>
             <h1>Post a ride</h1>
-            <CreateEvent />
+            <CreateEventClient />
         </div>
     )
 }

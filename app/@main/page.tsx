@@ -1,7 +1,7 @@
 'use client'
 import { collection, query, getDocs, Timestamp, where, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
-import React, { useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { CalendarEvent } from '../types'
 import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
 import { toFormattedDate, toFormattedTime } from "../format"
@@ -13,10 +13,10 @@ import { Button } from "@heroui/button"
 import Link from "next/link"
 import WithAuth from "../withAuthClient"
 import { useSearchParams } from 'next/navigation'
+import { useRefresh } from '../providers'
+import { Skeleton } from "@heroui/react"
 
 type EventWithId = CalendarEvent & { id: string }
-
-const eventsCache = new Map<string, [string, EventWithId[]][]>()
 
 async function fetchUpcomingEvents(filterTags: string[]): Promise<[string, EventWithId[]][]> {
     const eventsRef = collection(db, 'events')
@@ -49,34 +49,33 @@ async function fetchUpcomingEvents(filterTags: string[]): Promise<[string, Event
         .sort(([dateA], [dateB]) => dateA > dateB ? 1 : -1)
 }
 
-export default function EventList() {
+function EventListContent() {
     const searchParams = useSearchParams()
     const tags = searchParams.get('tags')
-    const cacheKey = tags ?? ''
-    const [events, setEvents] = useState<[string, EventWithId[]][]>(eventsCache.get(cacheKey) ?? [])
+    const { refreshKey } = useRefresh()
+    const [events, setEvents] = useState<[string, EventWithId[]][] | null>(null)
 
     useEffect(() => {
         const filterTags = tags ? tags.split(',').filter(Boolean) : []
         fetchUpcomingEvents(filterTags).then(data => {
-            eventsCache.set(cacheKey, data)
             setEvents(data)
         })
-    }, [tags])
+    }, [tags, refreshKey])
 
     return (
-        <div className="container mx-auto px-4 py-8">
-
-            <div className="mb-8 flex gap-3 flex-wrap justify-center">
-                <h1 className="m-0 flex-grow text-left">Upcoming Events</h1>
-                <WithAuth role="leader">
-                    <Button as={Link} href="/create" color="secondary">Post a ride</Button>
-                </WithAuth>
-            </div>
-
-            <TagFilter />
-
-            <div>
-                {events.map(([date, events]) => (
+        <div>
+            {events === null ? <>
+                <Skeleton className="mt-4 w-40 h-8" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-8">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                        <Skeleton key={index} className="h-40" />
+                    ))}
+                </div> 
+            </>
+                : events.length === 0 ? (
+                    <p className="text-center">No upcoming events found.</p>
+                ) : (
+                    events.map(([date, events]) => (
                     <div key={date}>
                         <h2 className="text-xl font-bold"> {toFormattedDate(new Date(date))} </h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -100,12 +99,29 @@ export default function EventList() {
                                 </Link>
                             ))}
                         </div>
-                    </div>
-                ))}
+                        </div>))
+                )
+            }
+        </div>
+    )
+}
+
+export default function EventList() {
+    return (
+        <div className="container mx-auto px-4 py-8">
+
+            <div className="mb-8 flex gap-3 flex-wrap justify-center">
+                <h1 className="m-0 flex-grow text-left">Upcoming Events</h1>
+                <WithAuth role="leader">
+                    <Button as={Link} href="/create" color="secondary">Post a ride</Button>
+                </WithAuth>
             </div>
-            {events.length === 0 && (
-                <p className="text-center">No upcoming events found.</p>
-            )}
+
+            <TagFilter />
+
+            <Suspense>
+                <EventListContent />
+            </Suspense>
         </div>
     )
 }

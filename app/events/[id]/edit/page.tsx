@@ -6,10 +6,12 @@ import { doc, updateDoc, getDoc, query, collection, where, getDocs } from "fireb
 import { CalendarEvent } from "app/types"
 import { Button, CircularProgress, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/react"
 import { db } from "@/lib/firebase/initFirebase"
+import { useRefresh } from "app/providers"
 
 export default function EditEventPage() {
     const { id } = useParams<{ id: string }>()
     const router = useRouter()
+    const { invalidate } = useRefresh()
 
     const [event, setEvent] = useState<CalendarEvent | null>(null)
     const [loading, setLoading] = useState(true)
@@ -41,7 +43,7 @@ export default function EditEventPage() {
     async function handleUpdate(updatedEvent: Partial<CalendarEvent>) {
         await handleRecurring(updatedEvent, doUpdate)
         router.push(`/events/${id}`)
-        router.refresh()
+        invalidate()
     }
 
     async function doUpdate(id: string, updatedEvent: Partial<CalendarEvent>) {

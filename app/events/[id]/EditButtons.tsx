@@ -3,12 +3,11 @@
 import Link from "next/link"
 import { useState } from "react"
 import { Button, ButtonGroup } from "@heroui/button"
-import { DocumentDuplicateIcon, EllipsisVerticalIcon, PencilIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon } from "@heroicons/react/24/outline"
+import { ChevronDownIcon, DocumentDuplicateIcon, PencilIcon, TrashIcon, UsersIcon, XCircleIcon } from "@heroicons/react/24/outline"
 import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/dropdown"
 import TransferOwnerDrawer from "./TransferOwnerDrawer"
 import DuplicateEventDrawer from "./DuplicateEventDrawer"
 import { useCancelEvent } from "./useCancelEvent"
-import { useRoles } from "app/clientAuth"
 import DeleteEventDrawer from "./DeleteEventDrawer"
 
 interface EditButtonsProps {
@@ -21,7 +20,6 @@ export default function EditButtons({ eventId, isCancelled }: EditButtonsProps) 
     const [duplicateOpen, setDuplicateOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
     const { handleCancel } = useCancelEvent(eventId, isCancelled)
-    const { roles } = useRoles()
 
     return (
         <>
@@ -33,7 +31,7 @@ export default function EditButtons({ eventId, isCancelled }: EditButtonsProps) 
                 </Button>
                 <Dropdown>
                     <DropdownTrigger>
-                        <Button isIconOnly><EllipsisVerticalIcon width={24} /></Button>
+                        <Button variant="bordered">More<ChevronDownIcon width={24} /></Button>
                     </DropdownTrigger>
                     <DropdownMenu>
                         <DropdownItem
