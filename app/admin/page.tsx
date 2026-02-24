@@ -1,7 +1,13 @@
 import { redirect } from 'next/navigation'
-import { getUser } from "app/serverAuth"
-import { getAdminApp } from '@/lib/firebase/serverApp'
+import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import RefreshMembershipButton from './RefreshMembershipButton'
+import { MemberRole } from "app/types"
+
+async function getUser() {
+    const { currentUser } = await getAuthenticatedAppForUser()
+    const idToken = await currentUser?.getIdTokenResult()
+    return { roles: (idToken?.claims['roles'] || []) as MemberRole[], currentUser, idToken }
+}
 
 export default async function AdminPage() {
     const { roles } = await getUser()

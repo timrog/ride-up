@@ -111,7 +111,7 @@ export default function EventList() {
         <div className="container mx-auto px-4 py-8">
 
             <div className="mb-8 flex gap-3 flex-wrap justify-center">
-                <h1 className="m-0 flex-grow text-left">Upcoming Events</h1>
+                <h1 className="m-0 flex-grow text-left">Upcoming Rides</h1>
                 <WithAuth role="leader">
                     <Button as={Link} href="/create" color="secondary">Post a ride</Button>
                 </WithAuth>

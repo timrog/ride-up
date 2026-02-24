@@ -7,7 +7,7 @@ import { ToastProvider } from '@heroui/toast'
 import { I18nProvider } from "@react-aria/i18n"
 import { DraftEventProvider } from "./create/editor"
 import { ForegroundMessaging } from "./ForegroundMessaging"
-import { ref } from "firebase/storage"
+import { useRouter } from "next/navigation"
 
 type RefreshContextType = {
     refreshKey: number
@@ -26,8 +26,9 @@ export function useRefresh() {
 export function Providers({ children }: { children: React.ReactNode }) {
     const [refreshKey, setRefreshKey] = useState(0)
     const invalidate = () => setRefreshKey(k => k + 1)
+    const router = useRouter();
     return (
-        <HeroUIProvider>
+        <HeroUIProvider navigate={router.push}>
             <ToastProvider />
             <ForegroundMessaging />
 

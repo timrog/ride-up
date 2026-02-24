@@ -11,8 +11,6 @@ export default function AboutPage() {
 
     return (
         <div className="container px-4 sm:mx-auto my-16">
-            <Link href="/"><IconLine icon={ChevronLeftIcon}>Back to calendar</IconLine></Link>
-
             <div className="max-w-2xl sm:mx-auto">
 
                 <h1>Frequently Asked Questions</h1>
