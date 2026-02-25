@@ -16,8 +16,7 @@ import {
 } from "firebase/auth"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useRoles } from "app/clientAuth"
-
-const PHONE_FEATURE_KEY = 'rideup.phoneSignIn'
+const phoneEnabled = process.env.NEXT_PUBLIC_PHONE_SIGN_IN_ENABLED !== 'false'
 
 function redirectIfHasRoles(idToken: IdTokenResult, router: ReturnType<typeof useRouter>, returnUrl: string) {
     const tokenRoles = idToken.claims['roles'] as string[] | undefined
@@ -177,16 +176,11 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
     const [awaitingEmail, setAwaitingEmail] = useState(false)
     const [awaitingCode, setAwaitingCode] = useState(false)
     const [validationErrors, setValidationErrors] = useState<FormProps['validationErrors']>({})
-    const [phoneEnabled, setPhoneEnabled] = useState(false)
     const confirmationResultRef = useRef<ConfirmationResult | null>(null)
     const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null)
     const recaptchaContainerRef = useRef<HTMLDivElement>(null)
     const auth = getAuth()
     const router = useRouter()
-
-    useEffect(() => {
-        setPhoneEnabled(window.localStorage.getItem(PHONE_FEATURE_KEY) === 'true')
-    }, [])
 
     function looksLikePhone(value: string): boolean {
         if (!phoneEnabled) return false

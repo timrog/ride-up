@@ -35,7 +35,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${sansFont.variable} ${headingFont.variable}`}>
         <Providers>
-          <div className="relative flex flex-col h-screen">
+          <div className="0fhowhp345kh relative flex flex-col h-screen">
             <Navbar />
             <main>
               {children}
