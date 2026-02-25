@@ -33,11 +33,11 @@ const EventPage = () => {
 
     if (event === undefined) {
         return <div className="px-8">
-            <Skeleton className="my-4 w-full h-12" />
+            <Skeleton className="my-4 w-full h-12 rounded-lg" />
             <div className="md:grid md:grid-cols-2 md:gap-8"
                 style={{ gridTemplateColumns: '1fr 2fr' }}>
-                <Skeleton className="h-100" />
-                <Skeleton className="h-100" />
+                <Skeleton className="h-100 rounded-lg" />
+                <Skeleton className="h-100 rounded-lg" />
             </div>
         </div>
     }
