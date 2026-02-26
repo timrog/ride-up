@@ -1,5 +1,3 @@
-# NOTE: we are not currently hosting using App Hosting - we're using Firebase Hosting instead. This file is here for reference in case we want to switch to App Hosting in the future, but it is not currently being used.
-
 runConfig:
   memoryMiB: 512
   cpu: 1

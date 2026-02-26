@@ -22,7 +22,7 @@ export default function CreateEvent() {
 
     if (!roles.includes('leader')) {
         return (
-            <div>
+            <div className="container px-4">
                 <h1>Want to post a ride?</h1>
                 <Alert color="warning">
                     We welcome everyone to post rides. There are just a few steps to go through.
@@ -33,7 +33,7 @@ export default function CreateEvent() {
     }
 
     return (
-        <div>
+        <div className="container px-4">
             <h1>Post a ride</h1>
             <CreateEventClient />
         </div>
