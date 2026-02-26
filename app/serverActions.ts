@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { doc, getDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore'
-import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity, MemberRole } from './types'
+import { Timestamp } from 'firebase/firestore'
+import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import admin from 'firebase-admin'
 import { withSpan } from '@/lib/tracing'
@@ -223,22 +223,26 @@ export async function addSignup(eventId: string, signupKey: string) {
 }
 
 export async function removeSignup(eventId: string, signupKey: string) {
-    try {
-        const { adminDb } = await initAuth()
+    return withSpan('serverAction.removeSignup', async (span) => {
+        span.setAttributes({ eventId, signupKey })
+        try {
+            const { adminDb } = await initAuth()
 
-        const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
+            const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
-        await activityRef.update({
-            [`signups.${signupKey}`]: admin.firestore.FieldValue.delete(),
-            signupIds: admin.firestore.FieldValue.arrayRemove(signupKey)
-        })
+            await activityRef.update({
+                [`signups.${signupKey}`]: admin.firestore.FieldValue.delete(),
+                signupIds: admin.firestore.FieldValue.arrayRemove(signupKey)
+            })
 
-        return { success: true }
-    } catch (error) {
-        console.error('Error removing signup:', error)
-        return { success: false, error: error.message }
-    }
+            return { success: true }
+        } catch (error) {
+            console.error('Error removing signup:', error)
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+        }
+    })
 }
+
 export async function getLeaders() {
     return withSpan('serverAction.getLeaders', async (span) => {
         try {
@@ -270,49 +274,17 @@ export async function getLeaders() {
 }
 
 export async function checkPhoneNumberExists(phoneNumber: string): Promise<{ exists: boolean }> {
-    try {
-        await getAdminApp().auth().getUserByPhoneNumber(phoneNumber)
-        return { exists: true }
-    } catch (error: unknown) {
-        if ((error as { code?: string }).code === 'auth/user-not-found') {
-            return { exists: false }
+    return withSpan('serverAction.checkPhoneNumberExists', async (span) => {
+        span.setAttribute('phone', phoneNumber)
+        try {
+            await getAdminApp().auth().getUserByPhoneNumber(phoneNumber)
+            return { exists: true }
+        } catch (error: unknown) {
+            if ((error as { code?: string }).code === 'auth/user-not-found') {
+                return { exists: false }
+            }
+            throw error
         }
-        throw error
-    }
+    })
 }
 
-export interface AdminUser {
-    uid: string
-    email: string | null
-    displayName: string | null
-    phoneNumber: string | null
-    customClaims: Record<string, unknown> | null
-    creationTime: string
-    lastSignInTime: string | null
-}
-
-export async function listAdminUsers(): Promise<{ success: true; users: AdminUser[] } | { success: false; error: string }> {
-    try {
-        const { currentUser } = await getAuthenticatedAppForUser()
-        if (!currentUser) return { success: false, error: 'Unauthorized' }
-        const idToken = await currentUser.getIdTokenResult()
-        const roles = (idToken.claims['roles'] || []) as MemberRole[]
-        if (!roles.includes('admin')) {
-            return { success: false, error: 'Unauthorized' }
-        }
-        const result = await getAdminApp().auth().listUsers()
-        const users: AdminUser[] = result.users.map(u => ({
-            uid: u.uid,
-            email: u.email ?? null,
-            displayName: u.displayName ?? null,
-            phoneNumber: u.phoneNumber ?? null,
-            customClaims: (u.customClaims as Record<string, unknown>) ?? null,
-            creationTime: u.metadata.creationTime,
-            lastSignInTime: u.metadata.lastSignInTime ?? null,
-        }))
-        return { success: true, users }
-    } catch (error) {
-        console.error('Error listing admin users:', error)
-        return { success: false, error: 'Failed to list users' }
-    }
-}
