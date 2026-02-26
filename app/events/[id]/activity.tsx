@@ -106,7 +106,8 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
         return date.toLocaleDateString()
     }
 
-    return <div className="md:grid md:grid-cols-2 md:gap-8"
+    return <>
+        <div className="md:grid md:grid-cols-2 md:gap-8"
         style={{ gridTemplateColumns: '1fr 2fr' }}>
 
         <div>
@@ -183,7 +184,11 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
                 />
 
             </div>
+            </div>
         </div>
-    </div>
+        <div className="text-small text-gray-400 text-center mt-4 mb-0 p-0">
+            Names and comments are visible to all club members but are never shared publicly.
+        </div>
+    </>
 }
 
