@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
 import RefreshMembershipButton from './RefreshMembershipButton'
+import TestEmailForm from './TestEmailForm'
 import { MemberRole } from "app/types"
 
 async function getUser() {
@@ -22,6 +23,11 @@ export default async function AdminPage() {
 
     return (
         <div className="container px-4 sm:mx-auto my-16">
+            <h1>Test email</h1>
+            <div className="my-4">
+                <TestEmailForm />
+            </div>
+
             <h1>User Management</h1>
             <div className="my-4">
                 <RefreshMembershipButton />

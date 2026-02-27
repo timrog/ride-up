@@ -32,4 +32,14 @@ env:
   - variable: CONTACT_WHATSAPP
     secret: CONTACT_WHATSAPP        
   - variable: CONTACT_RIDECOORD
-    secret: CONTACT_RIDECOORD           
+    secret: CONTACT_RIDECOORD
+  - variable: SMTP_HOST
+    secret: SMTP_HOST
+  - variable: SMTP_PORT
+    secret: SMTP_PORT
+  - variable: SMTP_USER
+    secret: SMTP_USER
+  - variable: SMTP_PASSWORD
+    secret: SMTP_PASSWORD
+  - variable: SMTP_FROM_EMAIL
+    secret: SMTP_FROM_EMAIL           
