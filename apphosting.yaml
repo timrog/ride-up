@@ -2,7 +2,7 @@ runConfig:
   memoryMiB: 512
   cpu: 1
 env:
-  # Get these values from the Firebase console
+  # Public Firebase config - safe to expose
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: AIzaSyAhSF_LG6yHe4ZhNqwkYJtIPWqQMywx9k8
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
@@ -15,31 +15,18 @@ env:
     value: "615148465536"
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:615148465536:web:b91205f11bbc6e47602565
+  - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    value: BCIcgaIuJgy2CFjQmOZ8ox1CtGigBweQa5i636MpnAdZBS4HuCweWrLmZAZgoYWJZaTstgupcW-XQZXlkqEHV0
+
+  # Observability
   - variable: OTEL_SERVICE_NAME
     value: ride-up
   - variable: OTEL_EXPORTER_OTLP_ENDPOINT
     value: https://api.honeycomb.io
   - variable: OTEL_EXPORTER_OTLP_PROTOCOL
     value: http/protobuf
-  - variable: OTEL_EXPORTER_OTLP_HEADERS
-    secret: HONEYCOMB_API_KEY
-  - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    value: BCIcgaIuJgy2CFjQmOZ8ox1CtGigBweQa5i636MpnAdZBS4HuCweWrLmZAZgoYWJZaTstgupcW-XQZXlkqEHV0
-  - variable: VAPID_PRIVATE_KEY
-    secret: VAPID_PRIVATE_KEY
-  - variable: CONTACT_EMAIL
-    secret: CONTACT_EMAIL
-  - variable: CONTACT_WHATSAPP
-    secret: CONTACT_WHATSAPP        
-  - variable: CONTACT_RIDECOORD
-    secret: CONTACT_RIDECOORD
-  - variable: SMTP_HOST
-    secret: SMTP_HOST
-  - variable: SMTP_PORT
-    secret: SMTP_PORT
-  - variable: SMTP_USER
-    secret: SMTP_USER
-  - variable: SMTP_PASSWORD
-    secret: SMTP_PASSWORD
-  - variable: SMTP_FROM_EMAIL
-    secret: SMTP_FROM_EMAIL           
+
+  # Consolidated secrets from APP_SECRETS JSON
+  # Contains: honeycomb, firebase admin creds, vapid, contact info, SMTP, mailerlite, google calendar
+  - variable: APP_SECRETS
+    secret: APP_SECRETS           

@@ -3,11 +3,27 @@ import { IconLine } from "@/components/IconLine"
 import ChevronLeftIcon from "@heroicons/react/24/outline/ChevronLeftIcon"
 import WithAuth from "app/withAuthClient"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import FeedbackForm from "./FeedbackForm"
+import { getContactInfo } from "app/serverActions"
 
 export default function AboutPage() {
-    const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL
-    const whatsapp = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP
+    const [contactInfo, setContactInfo] = useState<{ email: string; whatsapp: string } | null>(null)
+
+    useEffect(() => {
+        const loadContactInfo = async () => {
+            try {
+                const info = await getContactInfo()
+                setContactInfo(info)
+            } catch (error) {
+                console.error('Failed to load contact info:', error)
+            }
+        }
+        loadContactInfo()
+    }, [])
+
+    const email = contactInfo?.email
+    const whatsapp = contactInfo?.whatsapp
 
     return (
         <div className="container px-4 sm:mx-auto my-16">

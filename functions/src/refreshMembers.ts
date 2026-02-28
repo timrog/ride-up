@@ -3,11 +3,9 @@ import makeFetchCookie from 'fetch-cookie'
 import * as logger from "firebase-functions/logger"
 import { PubSub } from '@google-cloud/pubsub'
 import { onMessagePublished } from "firebase-functions/v2/pubsub"
-import { defineSecret } from "firebase-functions/params"
+import { getAppSecrets } from "./secrets"
+import { appSecretsParam } from "./index"
 
-const mm_email = defineSecret('MM_USERNAME')
-const mm_password = defineSecret('MM_PASSWORD')
-const secrets = [mm_email, mm_password]
 const region = 'europe-west2'
 
 const pubsub = new PubSub()
@@ -98,7 +96,8 @@ async function signInAndDownload(mm_email: string, mm_password: string) {
 }
 
 export async function retrieveMembers(validationLink?: string) {
-    const csvBuffer = await getMembersCsv(validationLink, mm_email.value(), mm_password.value())
+    const secrets = getAppSecrets()
+    const csvBuffer = await getMembersCsv(validationLink, secrets.mailerlite.username, secrets.mailerlite.password)
     if (!csvBuffer) return
 
     await allMembersTopic.publishMessage({
@@ -110,7 +109,7 @@ export async function retrieveMembers(validationLink?: string) {
 
 export const RefreshMembers = onMessagePublished({
     topic: "refresh-members",
-    secrets, region,
+    region, secrets: [appSecretsParam],
     concurrency: 1,
     minInstances: 0,
     maxInstances: 1

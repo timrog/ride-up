@@ -1,7 +1,8 @@
-import { defineSecret } from "firebase-functions/params"
 import { onMessagePublished } from "firebase-functions/pubsub"
+import { getAppSecrets } from "./secrets"
 import { decodeMembersCsv } from "./shared"
-const apiKey = defineSecret('MAILERLITE_API_KEY')
+import { appSecretsParam } from "./index"
+
 const region = 'europe-west2'
 
 type BatchRequest = {
@@ -18,12 +19,14 @@ type BatchRequest = {
 }
 
 export const SendMembersToMailerlite = onMessagePublished({
-    topic: "all-members", region, secrets: [apiKey]
+    topic: "all-members", region, secrets: [appSecretsParam]
 }, async (event) => {
+    const secrets = getAppSecrets()
     const records = decodeMembersCsv(event)
+    const apiKey = secrets.mailerlite.apiKey
 
     console.log(`Updating mailerlite ${records.length} records`)
-    let currentEmails = await getCurrentSubscribers()
+    let currentEmails = await getCurrentSubscribers(apiKey)
 
     let addRequests = records.map(row => (
         { "method": "POST", "path": "/api/subscribers", "body": { "email": row.Email, fields: { name: row["First name"], last_name: row["Last name"], membership: row.Membership } } }
@@ -33,10 +36,10 @@ export const SendMembersToMailerlite = onMessagePublished({
             { "method": "DELETE", "path": `/api/subscribers/${e.id}` }
         ))
 
-    await sendBatch([...addRequests, ...deleteRequests])
+    await sendBatch([...addRequests, ...deleteRequests], apiKey)
 })
 
-async function sendBatch(requests: BatchRequest[]) {
+async function sendBatch(requests: BatchRequest[], apiKey: string) {
     let url = "https://connect.mailerlite.com/api/batch"
     for (let i = 0; i < requests.length; i += 50) {
         let response = await fetch(url, {
@@ -46,7 +49,7 @@ async function sendBatch(requests: BatchRequest[]) {
             }),
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.value()}`
+                'Authorization': `Bearer ${apiKey}`
             }
         })
 
@@ -59,14 +62,14 @@ async function sendBatch(requests: BatchRequest[]) {
     }
 }
 
-async function getCurrentSubscribers() {
+async function getCurrentSubscribers(apiKey: string) {
     let url = "https://connect.mailerlite.com/api/subscribers"
     let emails = [] as { id: string, email: string }[]
     while (url) {
         let response = await fetch(url, {
             method: 'GET',
             headers: {
-                authorization: `Bearer ${apiKey.value()}`
+                authorization: `Bearer ${apiKey}`
             }
         })
         let records = await response.json() as { data: { id: string, email: string }[], links: { next: string } }

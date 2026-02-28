@@ -1,17 +1,20 @@
 import "server-only"
 import admin from 'firebase-admin'
+import { getAppSecrets } from '@/lib/secrets'
 
 let app: admin.app.App | undefined
 
 export function getAdminApp() {
     if (!app) {
         if (!admin.apps.length) {
-            const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-            const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
+            const secrets = getAppSecrets()
+            const { privateKey, clientEmail } = secrets.firebase
             const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-            if (!privateKey || !clientEmail || !projectId) {
-                throw new Error('Missing Firebase admin credentials env vars')
+
+            if (!projectId) {
+                throw new Error('Missing NEXT_PUBLIC_FIREBASE_PROJECT_ID env var')
             }
+
             admin.initializeApp({
                 credential: admin.credential.cert({
                     projectId,

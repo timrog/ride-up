@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { Timestamp } from 'firebase/firestore'
 import { CalendarEvent, Signup, Comment, NotificationPreferences, EventActivity } from './types'
 import { getAdminApp, getAuthenticatedAppForUser } from '@/lib/firebase/serverApp'
+import { getAppSecrets } from '@/lib/secrets'
 import admin from 'firebase-admin'
 import { withSpan } from '@/lib/tracing'
 import { SpanStatusCode } from "@opentelemetry/api"
@@ -13,6 +14,23 @@ interface DuplicateParams {
     eventId: string
     mode: DuplicateMode
     date: string
+}
+
+/**
+ * Get public contact information from consolidated secrets
+ */
+export async function getContactInfo() {
+    try {
+        const secrets = getAppSecrets()
+        return {
+            email: secrets.contact.email,
+            whatsapp: secrets.contact.whatsapp,
+            rideCoordinator: secrets.contact.rideCoordinator,
+        }
+    } catch (error) {
+        console.error('Failed to get contact info:', error)
+        throw new Error('Unable to load contact information')
+    }
 }
 
 function addDays(base: Date, days: number) {

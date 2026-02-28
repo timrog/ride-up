@@ -1,6 +1,7 @@
 'use server'
 
 import nodemailer from 'nodemailer'
+import { getAppSecrets } from '@/lib/secrets'
 
 export async function sendTestEmail(formData: FormData) {
     const email = formData.get('email')?.toString()
@@ -11,33 +12,32 @@ export async function sendTestEmail(formData: FormData) {
 
     console.log('Sending test email', { action: 'sendTestEmail', recipientEmail: email })
 
-    const smtpHost = process.env.SMTP_HOST
-    const smtpPort = process.env.SMTP_PORT
-    const smtpUser = process.env.SMTP_USER
-    const smtpPassword = process.env.SMTP_PASSWORD
-    const smtpFromEmail = process.env.SMTP_FROM_EMAIL || smtpUser
-
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
-        console.log('SMTP configuration missing', { error: 'SMTP configuration missing' })
+    let secrets
+    try {
+        secrets = getAppSecrets()
+    } catch (error) {
+        console.log('Failed to load secrets', { error: error instanceof Error ? error.message : String(error) })
         return { 
             success: false, 
-            error: 'SMTP configuration is incomplete. Please check environment variables.' 
+            error: 'Configuration error: unable to load secrets' 
         }
     }
 
+    const { smtp } = secrets
+
     try {
         const transporter = nodemailer.createTransport({
-            host: smtpHost,
-            port: parseInt(smtpPort),
-            secure: parseInt(smtpPort) === 465,
+            host: smtp.host,
+            port: smtp.port,
+            secure: smtp.port === 465,
             auth: {
-                user: smtpUser,
-                pass: smtpPassword,
+                user: smtp.user,
+                pass: smtp.password,
             },
         })
 
         const info = await transporter.sendMail({
-            from: smtpFromEmail,
+            from: smtp.fromEmail,
             to: email,
             subject: 'Test Email from Ride Up',
             text: 'This is a test email from your Ride Up admin panel.',

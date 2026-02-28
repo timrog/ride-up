@@ -1,5 +1,9 @@
 import admin from "firebase-admin"
+import { defineSecret } from "firebase-functions/params"
+
 admin.initializeApp()
+
+export const appSecretsParam = defineSecret("APP_SECRETS")
 
 export * from './mailerlite'
 export * from './refreshMembers'

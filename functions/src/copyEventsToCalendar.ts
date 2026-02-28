@@ -1,9 +1,10 @@
 import * as logger from "firebase-functions/logger"
 import { onDocumentWritten } from "firebase-functions/v2/firestore"
 import { calendar_v3, google } from 'googleapis'
-import { defineSecret } from "firebase-functions/params"
+import { getAppSecrets } from "./secrets"
+import { appSecretsParam } from "./index"
 import { CalendarEvent } from "../../app/types"
-const calendarId = defineSecret('GOOGLE_CALENDAR_ID')
+
 const region = 'europe-north1'
 
 function toCalendarEventId(firestoreId: string): string {
@@ -14,9 +15,11 @@ function toCalendarEventId(firestoreId: string): string {
 
 export const CopyEventsToCalendar = onDocumentWritten({
     document: "events/{eventId}",
-    secrets: [calendarId],
-    region
+    region, secrets: [appSecretsParam]
 }, async (event) => {
+    const secrets = getAppSecrets()
+    const calendarId = secrets.google.calendarId
+
     const firestoreEventId = event.params.eventId
     const calendarEventId = toCalendarEventId(firestoreEventId)
     const beforeData = event.data?.before.data() as CalendarEvent | undefined
@@ -28,13 +31,12 @@ export const CopyEventsToCalendar = onDocumentWritten({
         })
 
         const calendar = google.calendar({ version: 'v3', auth })
-        const calId = calendarId.value()
 
         // Document deleted
         if (!afterData && beforeData) {
             logger.info(`Deleting calendar event ${firestoreEventId}`)
             await calendar.events.delete({
-                calendarId: calId,
+                calendarId: calendarId,
                 eventId: calendarEventId
             })
             return
@@ -72,7 +74,7 @@ export const CopyEventsToCalendar = onDocumentWritten({
             // Try to update first, create if doesn't exist
             try {
                 await calendar.events.update({
-                    calendarId: calId,
+                    calendarId: calendarId,
                     eventId: calendarEventId,
                     requestBody: eventData
                 })
@@ -80,7 +82,7 @@ export const CopyEventsToCalendar = onDocumentWritten({
             } catch (error: any) {
                 if (error.code === 404) {
                     await calendar.events.insert({
-                        calendarId: calId,
+                        calendarId: calendarId,
                         requestBody: {
                             ...eventData,
                             id: calendarEventId
