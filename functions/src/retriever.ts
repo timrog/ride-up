@@ -96,6 +96,7 @@ async function signInAndDownload(mm_email: string, mm_password: string) {
 
 async function retrieveMembers(validationLink?: string) {
     const secrets = getAppSecrets()
+
     const csvBuffer = await getMembersCsv(validationLink, secrets.mailerlite.username, secrets.mailerlite.password)
     if (!csvBuffer) return
 
