@@ -19,7 +19,10 @@ type UserClaims = {
     extraUsers?: Array<{ displayName: string; phone: string | null }>
 }
 
-function getDisplayName(record: MemberRecord): string {
+function getDisplayName(record: MemberRecord): string | null {
+    if(!record["First name"] && !record["Last name"]) {
+        return null
+    }
     return `${record["First name"]} ${record["Last name"]}`.trim()
 }
 
@@ -44,9 +47,11 @@ function getExtraUsers(duplicateRecords: MemberRecord[], incoming: MemberRecord 
     if (duplicateRecords.length > 1) {
         duplicateRecords.forEach(record => {
             if (record === incoming) return
+            const displayName = getDisplayName(record)
+            if(!displayName) return
 
             extraUsers.push({
-                displayName: getDisplayName(record),
+                displayName,
                 phone: getPhoneNumber(record)
             })
         })
@@ -141,14 +146,17 @@ export const SendMembersToAuth = onMessagePublished({
         }
 
         const updates: admin.auth.UpdateRequest = {}
-        if (!existing.displayName?.trim() && displayName) {
+        if ((!existing.displayName?.trim()
+            || existing.displayName.indexOf("undefined") >= 0)
+            && displayName) {
             updates.displayName = displayName
         }
-        if (existing.phoneNumber !== phoneNumber) {
+        if (existing.phoneNumber !== phoneNumber && phoneNumber) {
             updates.phoneNumber = phoneNumber
         }
 
         if (Object.keys(updates).length > 0) {
+            logger.info(`Updating profile for ${key} with ${JSON.stringify(updates)}`)
             try {
                 const updatedUser = await auth.updateUser(existing.uid, updates)
                 profilesUpdated++
