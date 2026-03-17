@@ -1,6 +1,6 @@
 'use client'
-import React, { useState, useEffect } from 'react'
-import { getDoc, doc } from 'firebase/firestore'
+import React, { useState, useEffect, useRef } from 'react'
+import { getDoc, doc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import { CalendarEvent } from 'app/types'
 import { toFormattedDate, toFormattedTime } from "app/format"
@@ -16,33 +16,45 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Skeleton } from "@heroui/react"
 import { useRefresh } from "app/providers"
+import { useEventData } from "./EventDataContext"
+import { EventPageData } from "./eventPageData"
+
+const toCalendarEvent = (event: EventPageData): CalendarEvent => ({
+    title: event.title,
+    date: Timestamp.fromMillis(event.dateMs),
+    duration: event.duration,
+    location: event.location,
+    description: event.description,
+    routeLink: event.routeLink,
+    createdAt: Timestamp.fromMillis(event.createdAtMs),
+    createdBy: event.createdBy,
+    createdByName: event.createdByName,
+    linkId: event.linkId,
+    tags: event.tags,
+    isCancelled: event.isCancelled
+})
 
 const EventPage = () => {
     const { id } = useParams<{ id: string }>()
     const { refreshKey } = useRefresh()
-    const [event, setEvent] = useState<CalendarEvent | null | undefined>(undefined)
+    const { initialEvent } = useEventData()
+    const [event, setEvent] = useState<CalendarEvent | null | undefined>(
+        initialEvent ? toCalendarEvent(initialEvent) : null
+    )
+    const hasSkippedInitialFetch = useRef(false)
 
     useEffect(() => {
         if (!id) return
+
+        if (!hasSkippedInitialFetch.current) {
+            hasSkippedInitialFetch.current = true
+            return
+        }
+
         getDoc(doc(db, 'events', id)).then(snapshot => {
             setEvent(snapshot.exists() ? snapshot.data() as CalendarEvent : null)
         })
     }, [id, refreshKey])
-
-    useEffect(() => {
-        if (event === undefined) return
-
-        if (!event) {
-            document.title = 'Event not found'
-            return
-        }
-
-        document.title = event.title
-        const descriptionTag = document.querySelector('meta[name="description"]')
-        if (descriptionTag) {
-            descriptionTag.setAttribute('content', event.description)
-        }
-    }, [event])
 
     if (event === undefined) {
         return <div className="px-8">
