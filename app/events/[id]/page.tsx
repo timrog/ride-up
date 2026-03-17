@@ -1,5 +1,5 @@
 'use client'
-import React, { useCallback, useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import { CalendarEvent } from 'app/types'
@@ -22,14 +22,27 @@ const EventPage = () => {
     const { refreshKey } = useRefresh()
     const [event, setEvent] = useState<CalendarEvent | null | undefined>(undefined)
 
-    const fetchEvent = useCallback(() => {
+    useEffect(() => {
         if (!id) return
         getDoc(doc(db, 'events', id)).then(snapshot => {
             setEvent(snapshot.exists() ? snapshot.data() as CalendarEvent : null)
         })
     }, [id, refreshKey])
 
-    useEffect(() => { fetchEvent() }, [fetchEvent])
+    useEffect(() => {
+        if (event === undefined) return
+
+        if (!event) {
+            document.title = 'Event not found'
+            return
+        }
+
+        document.title = event.title
+        const descriptionTag = document.querySelector('meta[name="description"]')
+        if (descriptionTag) {
+            descriptionTag.setAttribute('content', event.description)
+        }
+    }, [event])
 
     if (event === undefined) {
         return <div className="px-8">
