@@ -155,7 +155,13 @@ export async function addSignup(eventId: string, signupKey: string) {
             span.setAttribute('user.id', currentUser.uid)
 
             const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
-            const user = await auth.getUser(currentUser.uid)
+
+            const [user, notificationPrefs] = await Promise.all([
+                auth.getUser(currentUser.uid),
+                adminDb.collection('notifications').doc(currentUser.uid).get()
+            ])
+
+            const prefsData = notificationPrefs.data() as NotificationPreferences | undefined
 
             let phone = user.customClaims?.phone || null
             let name = user.displayName || "Anonymous"
@@ -178,9 +184,6 @@ export async function addSignup(eventId: string, signupKey: string) {
                 userId: user.uid,
                 membership: user.customClaims?.membership || null
             }
-
-            const notificationPrefs = await adminDb.collection('notifications').doc(user.uid).get()
-            const prefsData = notificationPrefs.data() as NotificationPreferences | undefined
 
             try {
                 const updateData: Record<string, unknown> = {
