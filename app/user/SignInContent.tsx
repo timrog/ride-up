@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { addToast, Alert, Button, Form, FormProps, Input } from "@heroui/react"
 import { signInWithGoogle } from "@/lib/firebase/auth"
 import { checkPhoneNumberExists } from "app/serverActions"
+import { sendEmailSignInCode, verifyEmailSignInCode } from "./serverActions"
 import {
     ConfirmationResult,
     getAuth,
@@ -13,10 +14,18 @@ import {
     signInWithEmailAndPassword,
     signInWithEmailLink,
     signInWithPhoneNumber,
+    signInWithCustomToken,
 } from "firebase/auth"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useRoles } from "app/clientAuth"
+import MembershipHelp from "./MembershipHelp"
 const phoneEnabled = process.env.NEXT_PUBLIC_PHONE_SIGN_IN_ENABLED !== 'false'
+
+function getEmailCodeSignInEnabled(): boolean {
+    if (typeof window === 'undefined') return false
+    const value = window.localStorage.getItem('useEmailCodeSignIn')
+    return value === 'true'
+}
 
 function redirectIfHasRoles(idToken: IdTokenResult, router: ReturnType<typeof useRouter>, returnUrl: string) {
     const tokenRoles = idToken.claims['roles'] as string[] | undefined
@@ -115,7 +124,100 @@ function SignInWithGoogle({ returnUrl }: { returnUrl: string }) {
     )
 }
 
-function VerificationCodeHandler({ phone, confirmationResult, returnUrl, onResend, onCancel }: {
+// Shared inner component for verification code form
+function VerificationCodeForm({
+    contact,
+    verificationCode,
+    onCodeChange,
+    onSubmit,
+    onResend,
+    onCancel,
+    isLoading,
+    isDisabled,
+    codeMaxLength,
+    codePlaceholder,
+    lockoutAlert
+}: {
+    contact: string
+    verificationCode: string
+    onCodeChange: (code: string) => void
+    onSubmit: (event: React.FormEvent) => void
+    onResend: () => void
+    onCancel: () => void
+    isLoading: boolean
+    isDisabled: boolean
+    codeMaxLength?: number
+    codePlaceholder: string
+    lockoutAlert?: React.ReactNode
+}) {
+    const formRef = useRef<HTMLFormElement>(null)
+    const lastAutoSubmittedCodeRef = useRef<string | null>(null)
+
+    useEffect(() => {
+        if (!codeMaxLength || isDisabled || isLoading) return
+
+        if (verificationCode.length !== codeMaxLength) {
+            lastAutoSubmittedCodeRef.current = null
+            return
+        }
+
+        if (lastAutoSubmittedCodeRef.current === verificationCode) return
+        lastAutoSubmittedCodeRef.current = verificationCode
+        formRef.current?.requestSubmit()
+    }, [verificationCode, codeMaxLength, isDisabled, isLoading])
+
+    return (
+        <>
+            <Alert color="default">
+                A verification code has been sent to {contact}.
+            </Alert>
+
+            <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-4">
+                <Input
+                    type="text"
+                    inputMode="numeric"
+                    description={codePlaceholder}
+                    classNames={{
+                        input: "font-mono tracking-wide text-4xl",
+                    }}
+                    autoComplete="one-time-code"
+                    placeholder="------"
+                    value={verificationCode}
+                    onChange={(e) => onCodeChange(e.target.value)}
+                    isDisabled={isDisabled}
+                    {...(codeMaxLength ? { maxLength: codeMaxLength } : {})}
+                    required
+                />
+                <Button
+                    type="submit"
+                    isLoading={isLoading}
+                    isDisabled={isDisabled || (codeMaxLength !== undefined && verificationCode.length !== codeMaxLength)}
+                >
+                    Verify code
+                </Button>
+            </form>
+            <div className="flex gap-2 justify-center">
+                <Button
+                    variant="light"
+                    onPress={onResend}
+                    isDisabled={isDisabled}
+                >
+                    Resend code
+                </Button>
+                <Button
+                    variant="light"
+                    onPress={onCancel}
+                    isDisabled={isLoading}
+                >
+                    Cancel
+                </Button>
+            </div>
+            {lockoutAlert}
+        </>
+    )
+}
+
+function PhoneVerificationCodeHandler({ phone, confirmationResult, returnUrl, onResend, onCancel }: {
     phone: string
     confirmationResult: ConfirmationResult | null
     returnUrl: string
@@ -123,6 +225,7 @@ function VerificationCodeHandler({ phone, confirmationResult, returnUrl, onResen
     onCancel: () => void
 }) {
     const [verificationCode, setVerificationCode] = useState('')
+    const [isVerifying, setIsVerifying] = useState(false)
     const router = useRouter()
 
     const handleVerifyCode = async (event: React.FormEvent) => {
@@ -131,6 +234,7 @@ function VerificationCodeHandler({ phone, confirmationResult, returnUrl, onResen
             addToast({ description: 'Session expired. Please resend the verification code.', color: 'warning' })
             return
         }
+        setIsVerifying(true)
         try {
             const cred = await confirmationResult.confirm(verificationCode)
             const idToken = await cred.user.getIdTokenResult()
@@ -138,31 +242,133 @@ function VerificationCodeHandler({ phone, confirmationResult, returnUrl, onResen
         } catch (error) {
             console.error('Error confirming phone code:', error)
             addToast({ description: 'Invalid verification code. Please try again.', color: 'danger' })
+            setVerificationCode('')
+        } finally {
+            setIsVerifying(false)
         }
     }
 
+    const handleResend = async () => {
+        setVerificationCode('')
+        onResend()
+    }
+
+    const handleCodeChange = (code: string) => {
+        setVerificationCode(code.replace(/\D/g, '').slice(0, 6))
+    }
+
     return (
-        <>
-            <Alert color="default">
-                A verification code has been sent to {phone}.
-            </Alert>
-            <form onSubmit={handleVerifyCode} className="flex flex-col gap-4">
-                <Input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="Enter verification code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    required
-                />
-                <Button type="submit">Verify code</Button>
-            </form>
-            <div className="flex gap-2 justify-center">
-                <Button variant="light" onPress={onResend}>Resend code</Button>
-                <Button variant="light" onPress={onCancel}>Cancel</Button>
-            </div>
-        </>
+        <VerificationCodeForm
+            contact={phone}
+            verificationCode={verificationCode}
+            onCodeChange={handleCodeChange}
+            onSubmit={handleVerifyCode}
+            onResend={handleResend}
+            onCancel={onCancel}
+            isLoading={isVerifying}
+            isDisabled={isVerifying}
+            codeMaxLength={6}
+            codePlaceholder="Enter verification code"
+        />
+    )
+}
+
+function EmailCodeVerificationHandler({ email, returnUrl, onResend, onCancel, lockoutRemainingMs }: {
+    email: string
+    returnUrl: string
+    onResend: () => void
+    onCancel: () => void
+    lockoutRemainingMs?: number
+}) {
+    const [verificationCode, setVerificationCode] = useState('')
+    const [isVerifying, setIsVerifying] = useState(false)
+    const [isLockedOut, setIsLockedOut] = useState(false)
+    const router = useRouter()
+    const auth = getAuth()
+
+    useEffect(() => {
+        if (lockoutRemainingMs && lockoutRemainingMs > 0) {
+            setIsLockedOut(true)
+        }
+    }, [lockoutRemainingMs])
+
+    const handleVerifyCode = async (event: React.FormEvent) => {
+        event.preventDefault()
+        if (isLockedOut || isVerifying) return
+
+        setIsVerifying(true)
+        try {
+            const result = await verifyEmailSignInCode(email, verificationCode)
+
+            if (!result.success) {
+                if (result.lockoutRemainingMs && result.lockoutRemainingMs > 0) {
+                    setIsLockedOut(true)
+                    addToast({
+                        title: 'Account Locked',
+                        description: result.error || 'Please try again in 15 minutes.',
+                        color: 'danger'
+                    })
+                } else {
+                    addToast({
+                        description: result.error || 'Invalid verification code. Please try again.',
+                        color: 'danger'
+                    })
+                }
+                setVerificationCode('')
+                return
+            }
+
+            // Sign in with custom token
+            if (!result.customToken) {
+                addToast({ description: 'Sign-in failed. Please try again.', color: 'danger' })
+                return
+            }
+
+            const cred = await signInWithCustomToken(auth, result.customToken)
+            const idToken = await cred.user.getIdTokenResult()
+            redirectIfHasRoles(idToken, router, returnUrl)
+        } catch (error) {
+            console.error('Error verifying email code:', error)
+            addToast({
+                description: error instanceof Error ? error.message : 'Failed to verify code. Please try again.',
+                color: 'danger'
+            })
+            setVerificationCode('')
+        } finally {
+            setIsVerifying(false)
+        }
+    }
+
+    const handleResend = async () => {
+        if (isLockedOut || isVerifying) return
+        setVerificationCode('')
+        onResend()
+    }
+
+    const handleCodeChange = (code: string) => {
+        setVerificationCode(code.replace(/\D/g, '').slice(0, 6))
+    }
+
+    const lockoutAlert = isLockedOut && lockoutRemainingMs ? (
+        <Alert color="warning">
+            Too many attempts. Please try again in {Math.ceil(lockoutRemainingMs / 60000)} minutes.
+        </Alert>
+    ) : undefined
+
+    return (
+        <VerificationCodeForm
+            contact={email}
+            verificationCode={verificationCode}
+            onCodeChange={handleCodeChange}
+            onSubmit={handleVerifyCode}
+            onResend={handleResend}
+            onCancel={onCancel}
+            isLoading={isVerifying}
+            isDisabled={isLockedOut || isVerifying}
+            codeMaxLength={6}
+            codePlaceholder="Enter 6 digit code"
+            lockoutAlert={lockoutAlert}
+        />
     )
 }
 
@@ -175,12 +381,17 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
     const [isPhone, setIsPhone] = useState(false)
     const [awaitingEmail, setAwaitingEmail] = useState(false)
     const [awaitingCode, setAwaitingCode] = useState(false)
+    const [awaitingEmailCode, setAwaitingEmailCode] = useState(false)
+    const [emailCodeLockoutRemainingMs, setEmailCodeLockoutRemainingMs] = useState<number | undefined>()
+    const [membershipHelpOpen, setMembershipHelpOpen] = useState(false)
+    const [membershipHelpError, setMembershipHelpError] = useState<string | undefined>()
     const [validationErrors, setValidationErrors] = useState<FormProps['validationErrors']>({})
     const confirmationResultRef = useRef<ConfirmationResult | null>(null)
     const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null)
     const recaptchaContainerRef = useRef<HTMLDivElement>(null)
     const auth = getAuth()
     const router = useRouter()
+    const emailCodeEnabled = getEmailCodeSignInEnabled()
 
     function looksLikePhone(value: string): boolean {
         if (!phoneEnabled) return false
@@ -205,13 +416,15 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
     }
 
     const handlePhoneSignIn = async () => {
+        const noMembershipError = 'No membership is associated with that phone number. Check your details.'
         try {
             const number = formatE164PhoneNumber(input.trim())
             const { exists } = await checkPhoneNumberExists(number)
             if (!exists) {
-                setValidationErrors({ contact: 'No membership is associated with that phone number. Check your details.' })
+                setMembershipHelpError(noMembershipError)
                 return
             }
+            setMembershipHelpError(undefined)
             await sendPhoneCode(number)
             setAwaitingCode(true)
             onAwaitingCodeChange(true)
@@ -221,8 +434,56 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
         }
     }
 
+    const handleEmailSignInViaCode = async () => {
+        const noMembershipError = 'No membership is associated with that email address.'
+        const email = input.toLowerCase().trim()
+
+        try {
+            const result = await sendEmailSignInCode(email)
+
+            if (!result.success) {
+                if (result.nextResendAt) {
+                    const now = Date.now()
+                    setEmailCodeLockoutRemainingMs(Math.max(0, result.nextResendAt - now))
+                }
+                if (result.error === noMembershipError) {
+                    setMembershipHelpError(result.error)
+                    return
+                }
+                setMembershipHelpError(undefined)
+                addToast({
+                    description: result.error || 'Failed to send verification code.',
+                    color: 'danger'
+                })
+                return
+            }
+
+            setMembershipHelpError(undefined)
+            setAwaitingEmailCode(true)
+            addToast({
+                title: 'Code sent',
+                description: `Verification code sent to ${email}`,
+                color: 'success'
+            })
+        } catch (error) {
+            console.error('Error sending email code:', error)
+            addToast({
+                description: 'Failed to send verification code. Please try again.',
+                color: 'danger'
+            })
+        }
+    }
+
     const handleEmailSignIn = async () => {
         const email = input
+
+        // Use email code flow if enabled
+        if (emailCodeEnabled && !isPhone) {
+            await handleEmailSignInViaCode()
+            return
+        }
+
+        // Otherwise use existing email-link flow
         if (process.env.NODE_ENV === 'development' && password) {
             try {
                 const cred = await signInWithEmailAndPassword(auth, email, password)
@@ -261,6 +522,18 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
         }
     }
 
+    const handleResendEmailCode = async () => {
+        await handleEmailSignInViaCode()
+    }
+
+    const handleCancelEmailCode = () => {
+        setAwaitingEmailCode(false)
+        setEmailCodeLockoutRemainingMs(undefined)
+        setMembershipHelpError(undefined)
+        setInput('')
+        setValidationErrors({})
+    }
+
     const handleCancelPhone = () => {
         confirmationResultRef.current = null
         setAwaitingCode(false)
@@ -277,11 +550,23 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
         )
     }
 
+    if (awaitingEmailCode) {
+        return (
+            <EmailCodeVerificationHandler
+                email={input}
+                returnUrl={returnUrl}
+                onResend={handleResendEmailCode}
+                onCancel={handleCancelEmailCode}
+                lockoutRemainingMs={emailCodeLockoutRemainingMs}
+            />
+        )
+    }
+
     return (
         <>
             <div ref={recaptchaContainerRef} />
             {awaitingCode ? (
-                <VerificationCodeHandler
+                <PhoneVerificationCodeHandler
                     phone={input}
                     confirmationResult={confirmationResultRef.current}
                     returnUrl={returnUrl}
@@ -296,9 +581,25 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
                             placeholder={phoneEnabled ? 'Enter your email address or phone number' : 'Enter your email address'}
                             value={input}
                             onBlur={() => isPhone ? setInput(formatE164PhoneNumber(input)) : setInput(input.trim())}
-                            onChange={(e) => { setInput(e.target.value); setIsPhone(looksLikePhone(e.target.value)) }}
+                            onChange={(e) => {
+                                setInput(e.target.value)
+                                setIsPhone(looksLikePhone(e.target.value))
+                                setMembershipHelpError(undefined)
+                            }}
                             required
                         />
+                        {membershipHelpError && (
+                            <Alert color="danger">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span>{membershipHelpError}</span>
+                                    <MembershipHelp
+                                        showInlineAlert={false}
+                                        open={membershipHelpOpen}
+                                        onOpenChange={setMembershipHelpOpen}
+                                    />
+                                </div>
+                            </Alert>
+                        )}
                         {process.env.NODE_ENV === 'development' && !isPhone && (
                             <Input
                                 type="password"

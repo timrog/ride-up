@@ -23,6 +23,12 @@
           "queryScope": "COLLECTION_GROUP"
         }
       ]
+    },
+    {
+      "collectionGroup": "signInCodes",
+      "fieldPath": "expiresAt",
+      "indexes": [],
+      "ttl": true
     }
   ]
 }
