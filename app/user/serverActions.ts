@@ -98,7 +98,7 @@ export async function sendEmailSignInCode(
             // Check for lockout
             const lockoutCode = codes.find(c => c.lockExpiresAt && c.lockExpiresAt.toMillis() > now)
             if (lockoutCode) {
-                const lockoutRemainingMs = (lockoutCode.lockExpiresAt?.toMillis() || now) - now
+                span.setAttribute('lockoutActive', true)
                 return {
                     success: false,
                     error: 'Too many failed attempts. Please try again later.',
@@ -113,6 +113,7 @@ export async function sendEmailSignInCode(
             )
             if (recentCode) {
                 const nextResendAt = (recentCode.createdAt?.toMillis() || now) + thirtySeconds
+                span.setAttribute('resendCooldownActive', true)
                 return {
                     success: false,
                     error: 'Please wait 30 seconds before requesting another code.',
@@ -157,6 +158,7 @@ export async function sendEmailSignInCode(
             if (!emailResult.success) {
                 // Code was stored but email failed to send - return error
                 console.error('Email send failed after storing code', { email: normalizedEmail, error: emailResult.error })
+                span.setAttribute('emailSendFailed', true)
                 return {
                     success: false,
                     error: 'Verification code generated but failed to send. Please try again.',
@@ -209,6 +211,7 @@ export async function verifyEmailSignInCode(
             const lockoutCode = codes.find(c => c.lockExpiresAt && c.lockExpiresAt.toMillis() > now)
             if (lockoutCode) {
                 const lockoutRemainingMs = (lockoutCode.lockExpiresAt?.toMillis() || now) - now
+                span.setAttribute('lockoutActive', true)
                 return {
                     success: false,
                     error: 'Too many failed attempts. Please try again later.',
@@ -234,6 +237,7 @@ export async function verifyEmailSignInCode(
 
             const codeHash = createHash('sha256').update(code).digest('hex')
 
+            span.setAttribute('codeMatches', codeHash === codeRecord.codeHash)
             // Check if code matches
             if (codeHash !== codeRecord.codeHash) {
                 // Increment failed attempts
@@ -250,6 +254,7 @@ export async function verifyEmailSignInCode(
                 await codeRecord.ref.update(updateData)
 
                 const isLockedOut = newFailedAttempts >= 10
+                span.setAttribute('isLockedOut', isLockedOut)
                 return {
                     success: false,
                     error: isLockedOut
@@ -265,6 +270,8 @@ export async function verifyEmailSignInCode(
                 usedAt: admin.firestore.Timestamp.now(),
             })
 
+            span.setAttribute('membershipExists', membership.exists)
+            span.setAttribute('membershipIsMember', membership.isMember)
             if (!membership.exists || !membership.userId || !membership.isMember) {
                 return {
                     success: false,
@@ -276,7 +283,6 @@ export async function verifyEmailSignInCode(
             // Create custom token for sign-in
             const customToken = await auth.createCustomToken(membership.userId)
 
-            console.log('Email sign-in code verified', { action: 'verifyEmailSignInCode', email: normalizedEmail })
             return {
                 success: true,
                 customToken,

@@ -296,12 +296,13 @@ export async function getLeaders() {
 
 export async function checkPhoneNumberExists(phoneNumber: string): Promise<{ exists: boolean }> {
     return withSpan('serverAction.checkPhoneNumberExists', async (span) => {
-        span.setAttribute('phone', phoneNumber)
         try {
             await getAdminApp().auth().getUserByPhoneNumber(phoneNumber)
+            span.setAttribute('exists', true)
             return { exists: true }
         } catch (error: unknown) {
             if ((error as { code?: string }).code === 'auth/user-not-found') {
+                span.setAttribute('exists', false)
                 return { exists: false }
             }
             throw error
