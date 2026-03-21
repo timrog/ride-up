@@ -5,94 +5,35 @@ import { signInWithGoogle } from "@/lib/firebase/auth"
 import { checkPhoneNumberExists } from "app/serverActions"
 import { sendEmailSignInCode, verifyEmailSignInCode } from "./serverActions"
 import {
+    Auth,
     ConfirmationResult,
     getAuth,
     IdTokenResult,
-    isSignInWithEmailLink,
     RecaptchaVerifier,
-    sendSignInLinkToEmail,
-    signInWithEmailAndPassword,
-    signInWithEmailLink,
     signInWithPhoneNumber,
     signInWithCustomToken,
 } from "firebase/auth"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useRoles } from "app/clientAuth"
 import MembershipHelp from "./MembershipHelp"
-const phoneEnabled = process.env.NEXT_PUBLIC_PHONE_SIGN_IN_ENABLED !== 'false'
+const noMembershipError = 'No membership is associated with that account. Check your details or click Help for assistance.'
 
-function getEmailCodeSignInEnabled(): boolean {
-    if (typeof window === 'undefined') return false
-    const value = window.localStorage.getItem('useEmailCodeSignIn')
-    return value === 'true'
-}
-
-function redirectIfHasRoles(idToken: IdTokenResult, router: ReturnType<typeof useRouter>, returnUrl: string) {
+async function redirectIfHasRoles(
+    idToken: IdTokenResult,
+    auth: Auth,
+    router: ReturnType<typeof useRouter>,
+    returnUrl: string,
+): Promise<boolean> {
     const tokenRoles = idToken.claims['roles'] as string[] | undefined
-    if (tokenRoles && tokenRoles.length > 0) {
+    if (tokenRoles?.includes('member')) {
         router.push(returnUrl)
-    }
-}
-
-// ---- Sub-components ----
-
-function LinkHandler({ returnUrl, onWrongBrowser }: {
-    returnUrl: string
-    onWrongBrowser: () => void
-}) {
-    const auth = getAuth()
-    const router = useRouter()
-    const [wrongBrowser, setWrongBrowser] = useState(false)
-
-    useEffect(() => {
-        if (!isSignInWithEmailLink(auth, window.location.href)) return
-        const email = window.localStorage.getItem('emailForSignIn')
-        if (email) {
-            signInWithEmailLink(auth, email, window.location.href)
-                .then(cred => cred.user.getIdTokenResult().then(idToken => {
-                    window.localStorage.removeItem('emailForSignIn')
-                    redirectIfHasRoles(idToken, router, returnUrl)
-                }))
-                .catch((error) => {
-                    console.error('Error signing in with email link:', error)
-                    addToast({ description: 'Failed to sign in. Please try again.', color: 'danger' })
-                })
-        } else {
-            setWrongBrowser(true)
-            onWrongBrowser()
-        }
-    }, [])
-
-    const handleCopyLink = async () => {
-        try {
-            await navigator.clipboard.writeText(window.location.href)
-            addToast({ description: 'Link copied to clipboard!', color: 'success' })
-        } catch (error) {
-            console.error('Failed to copy link:', error)
-            addToast({ description: 'Failed to copy link', color: 'danger' })
-        }
+        return true
     }
 
-    if (!wrongBrowser) return null
-
-    return (
-        <Alert color="warning" title="Sign in link opened in wrong browser">
-            <div className="flex flex-col gap-3">
-                <p>This sign-in link has opened in a different browser to the one where you requested it. To complete your sign-in:</p>
-                <ol className="list-decimal list-inside space-y-2">
-                    <li>Click the button below to copy the link</li>
-                    <li>Switch to the original tab where you requested the sign-in link</li>
-                    <li>Paste the link into the address bar and press Enter</li>
-                </ol>
-                <Button color="warning" variant="flat" onPress={handleCopyLink} className="w-full">
-                    Copy link to clipboard
-                </Button>
-            </div>
-        </Alert>
-    )
+    await auth.signOut()
+    return false
 }
 
-function SignInWithGoogle({ returnUrl }: { returnUrl: string }) {
+function SignInWithGoogle({ returnUrl, onMissingMembership }: { returnUrl: string; onMissingMembership: () => void }) {
     const auth = getAuth()
     const router = useRouter()
 
@@ -102,7 +43,10 @@ function SignInWithGoogle({ returnUrl }: { returnUrl: string }) {
             const user = auth.currentUser
             if (user) {
                 const idToken = await user.getIdTokenResult()
-                redirectIfHasRoles(idToken, router, returnUrl)
+                const redirected = await redirectIfHasRoles(idToken, auth, router, returnUrl)
+                if (!redirected) {
+                    onMissingMembership()
+                }
             }
         } catch (error) {
             console.error('Error signing in with Google:', error)
@@ -124,9 +68,8 @@ function SignInWithGoogle({ returnUrl }: { returnUrl: string }) {
     )
 }
 
-// Shared inner component for verification code form
 function VerificationCodeForm({
-    contact,
+    prompt,
     verificationCode,
     onCodeChange,
     onSubmit,
@@ -138,7 +81,7 @@ function VerificationCodeForm({
     codePlaceholder,
     lockoutAlert
 }: {
-    contact: string
+        prompt: string
     verificationCode: string
     onCodeChange: (code: string) => void
     onSubmit: (event: React.FormEvent) => void
@@ -169,7 +112,7 @@ function VerificationCodeForm({
     return (
         <>
             <Alert color="default">
-                A verification code has been sent to {contact}.
+                {prompt}
             </Alert>
 
             <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -217,28 +160,43 @@ function VerificationCodeForm({
     )
 }
 
-function PhoneVerificationCodeHandler({ phone, confirmationResult, returnUrl, onResend, onCancel }: {
+function PhoneVerificationCodeHandler({ phone, confirmationResult, returnUrl, onResend, onCancel, onMissingMembership, isSuppressed }: {
     phone: string
     confirmationResult: ConfirmationResult | null
     returnUrl: string
     onResend: () => void
     onCancel: () => void
+    onMissingMembership: () => void
+    isSuppressed: boolean
 }) {
     const [verificationCode, setVerificationCode] = useState('')
     const [isVerifying, setIsVerifying] = useState(false)
+    const auth = getAuth()
     const router = useRouter()
 
     const handleVerifyCode = async (event: React.FormEvent) => {
         event.preventDefault()
+        if (isSuppressed) {
+            addToast({ description: 'Invalid verification code. Please try again.', color: 'danger' })
+            setVerificationCode('')
+            return
+        }
+
         if (!confirmationResult) {
             addToast({ description: 'Session expired. Please resend the verification code.', color: 'warning' })
             return
         }
+
         setIsVerifying(true)
         try {
             const cred = await confirmationResult.confirm(verificationCode)
             const idToken = await cred.user.getIdTokenResult()
-            redirectIfHasRoles(idToken, router, returnUrl)
+            const redirected = await redirectIfHasRoles(idToken, auth, router, returnUrl)
+            if (!redirected) {
+                onMissingMembership()
+                onCancel()
+                return
+            }
         } catch (error) {
             console.error('Error confirming phone code:', error)
             addToast({ description: 'Invalid verification code. Please try again.', color: 'danger' })
@@ -259,7 +217,7 @@ function PhoneVerificationCodeHandler({ phone, confirmationResult, returnUrl, on
 
     return (
         <VerificationCodeForm
-            contact={phone}
+            prompt={`A verification code has been sent to ${phone}. Enter it below to sign in. If you don't receive the code within a few minutes, check your phone number is correct.`}
             verificationCode={verificationCode}
             onCodeChange={handleCodeChange}
             onSubmit={handleVerifyCode}
@@ -273,12 +231,13 @@ function PhoneVerificationCodeHandler({ phone, confirmationResult, returnUrl, on
     )
 }
 
-function EmailCodeVerificationHandler({ email, returnUrl, onResend, onCancel, lockoutRemainingMs }: {
+function EmailCodeVerificationHandler({ email, returnUrl, onResend, onCancel, lockoutRemainingMs, onMissingMembership }: {
     email: string
     returnUrl: string
     onResend: () => void
     onCancel: () => void
     lockoutRemainingMs?: number
+    onMissingMembership: () => void
 }) {
     const [verificationCode, setVerificationCode] = useState('')
     const [isVerifying, setIsVerifying] = useState(false)
@@ -301,7 +260,10 @@ function EmailCodeVerificationHandler({ email, returnUrl, onResend, onCancel, lo
             const result = await verifyEmailSignInCode(email, verificationCode)
 
             if (!result.success) {
-                if (result.lockoutRemainingMs && result.lockoutRemainingMs > 0) {
+                if (result.notMember) {
+                    onMissingMembership()
+                    onCancel()
+                } else if (result.lockoutRemainingMs && result.lockoutRemainingMs > 0) {
                     setIsLockedOut(true)
                     addToast({
                         title: 'Account Locked',
@@ -326,7 +288,11 @@ function EmailCodeVerificationHandler({ email, returnUrl, onResend, onCancel, lo
 
             const cred = await signInWithCustomToken(auth, result.customToken)
             const idToken = await cred.user.getIdTokenResult()
-            redirectIfHasRoles(idToken, router, returnUrl)
+            const redirected = await redirectIfHasRoles(idToken, auth, router, returnUrl)
+            if (!redirected) {
+                onMissingMembership()
+                onCancel()
+            }
         } catch (error) {
             console.error('Error verifying email code:', error)
             addToast({
@@ -351,13 +317,13 @@ function EmailCodeVerificationHandler({ email, returnUrl, onResend, onCancel, lo
 
     const lockoutAlert = isLockedOut && lockoutRemainingMs ? (
         <Alert color="warning">
-            Too many attempts. Please try again in {Math.ceil(lockoutRemainingMs / 60000)} minutes.
+            Too many attempts. Please try again in a few minutes.
         </Alert>
     ) : undefined
 
     return (
         <VerificationCodeForm
-            contact={email}
+            prompt={`A verification code has been sent to ${email}. Enter it below to sign in. If you don't receive the code within a few minutes, check your spam folder or click Resend.`}
             verificationCode={verificationCode}
             onCodeChange={handleCodeChange}
             onSubmit={handleVerifyCode}
@@ -372,29 +338,26 @@ function EmailCodeVerificationHandler({ email, returnUrl, onResend, onCancel, lo
     )
 }
 
-function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
+function SignInWithCredentials({ returnUrl, onAwaitingCodeChange, onMissingMembership, onClearMembershipHelp }: {
     returnUrl: string
     onAwaitingCodeChange: (awaitingCode: boolean) => void
+    onMissingMembership: () => void
+    onClearMembershipHelp: () => void
 }) {
     const [input, setInput] = useState('')
-    const [password, setPassword] = useState('')
     const [isPhone, setIsPhone] = useState(false)
     const [awaitingEmail, setAwaitingEmail] = useState(false)
     const [awaitingCode, setAwaitingCode] = useState(false)
     const [awaitingEmailCode, setAwaitingEmailCode] = useState(false)
+    const [isPhoneCodeSuppressed, setIsPhoneCodeSuppressed] = useState(false)
     const [emailCodeLockoutRemainingMs, setEmailCodeLockoutRemainingMs] = useState<number | undefined>()
-    const [membershipHelpOpen, setMembershipHelpOpen] = useState(false)
-    const [membershipHelpError, setMembershipHelpError] = useState<string | undefined>()
     const [validationErrors, setValidationErrors] = useState<FormProps['validationErrors']>({})
     const confirmationResultRef = useRef<ConfirmationResult | null>(null)
     const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null)
     const recaptchaContainerRef = useRef<HTMLDivElement>(null)
     const auth = getAuth()
-    const router = useRouter()
-    const emailCodeEnabled = getEmailCodeSignInEnabled()
 
     function looksLikePhone(value: string): boolean {
-        if (!phoneEnabled) return false
         const digits = value.replace(/\D/g, '')
         return /^\+?[\d\s\-().]{7,}$/.test(value.trim()) && digits.length >= 7
     }
@@ -416,15 +379,21 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
     }
 
     const handlePhoneSignIn = async () => {
-        const noMembershipError = 'No membership is associated with that phone number. Check your details.'
         try {
             const number = formatE164PhoneNumber(input.trim())
+            onClearMembershipHelp()
+
             const { exists } = await checkPhoneNumberExists(number)
             if (!exists) {
-                setMembershipHelpError(noMembershipError)
+                confirmationResultRef.current = null
+                setIsPhoneCodeSuppressed(true)
+                setInput(number)
+                setAwaitingCode(true)
+                onAwaitingCodeChange(true)
                 return
             }
-            setMembershipHelpError(undefined)
+
+            setIsPhoneCodeSuppressed(false)
             await sendPhoneCode(number)
             setAwaitingCode(true)
             onAwaitingCodeChange(true)
@@ -434,11 +403,11 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
         }
     }
 
-    const handleEmailSignInViaCode = async () => {
-        const noMembershipError = 'No membership is associated with that email address.'
+    const handleEmailSign = async () => {
         const email = input.toLowerCase().trim()
 
         try {
+            onClearMembershipHelp()
             const result = await sendEmailSignInCode(email)
 
             if (!result.success) {
@@ -446,11 +415,6 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
                     const now = Date.now()
                     setEmailCodeLockoutRemainingMs(Math.max(0, result.nextResendAt - now))
                 }
-                if (result.error === noMembershipError) {
-                    setMembershipHelpError(result.error)
-                    return
-                }
-                setMembershipHelpError(undefined)
                 addToast({
                     description: result.error || 'Failed to send verification code.',
                     color: 'danger'
@@ -458,13 +422,7 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
                 return
             }
 
-            setMembershipHelpError(undefined)
             setAwaitingEmailCode(true)
-            addToast({
-                title: 'Code sent',
-                description: `Verification code sent to ${email}`,
-                color: 'success'
-            })
         } catch (error) {
             console.error('Error sending email code:', error)
             addToast({
@@ -474,45 +432,21 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
         }
     }
 
-    const handleEmailSignIn = async () => {
-        const email = input
-
-        // Use email code flow if enabled
-        if (emailCodeEnabled && !isPhone) {
-            await handleEmailSignInViaCode()
-            return
-        }
-
-        // Otherwise use existing email-link flow
-        if (process.env.NODE_ENV === 'development' && password) {
-            try {
-                const cred = await signInWithEmailAndPassword(auth, email, password)
-                const idToken = await cred.user.getIdTokenResult()
-                redirectIfHasRoles(idToken, router, returnUrl)
-            } catch {
-                addToast({ description: 'Failed to sign in. Please try again.', color: 'danger' })
-            }
-            return
-        }
-        const actionCodeSettings = {
-            url: `${window.location.origin}/user${returnUrl !== '/' ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`,
-            handleCodeInApp: true,
-        }
-        await sendSignInLinkToEmail(auth, email, actionCodeSettings)
-        window.localStorage.setItem('emailForSignIn', email)
-        setAwaitingEmail(true)
-    }
-
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault()
         if (isPhone) {
             await handlePhoneSignIn()
         } else {
-            await handleEmailSignIn()
+            await handleEmailSign()
         }
     }
 
     const handleResendCode = async () => {
+        if (isPhoneCodeSuppressed) {
+            addToast({ description: 'Verification code resent.', color: 'success' })
+            return
+        }
+
         try {
             await sendPhoneCode(input)
             addToast({ description: 'Verification code resent.', color: 'success' })
@@ -523,19 +457,19 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
     }
 
     const handleResendEmailCode = async () => {
-        await handleEmailSignInViaCode()
+        await handleEmailSign()
     }
 
     const handleCancelEmailCode = () => {
         setAwaitingEmailCode(false)
         setEmailCodeLockoutRemainingMs(undefined)
-        setMembershipHelpError(undefined)
         setInput('')
         setValidationErrors({})
     }
 
     const handleCancelPhone = () => {
         confirmationResultRef.current = null
+        setIsPhoneCodeSuppressed(false)
         setAwaitingCode(false)
         onAwaitingCodeChange(false)
         setIsPhone(false)
@@ -558,6 +492,7 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
                 onResend={handleResendEmailCode}
                 onCancel={handleCancelEmailCode}
                 lockoutRemainingMs={emailCodeLockoutRemainingMs}
+                onMissingMembership={onMissingMembership}
             />
         )
     }
@@ -572,22 +507,60 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
                     returnUrl={returnUrl}
                     onResend={handleResendCode}
                     onCancel={handleCancelPhone}
+                    onMissingMembership={onMissingMembership}
+                    isSuppressed={isPhoneCodeSuppressed}
                 />
             ) : (
                 <Form onSubmit={handleSubmit} className="flex flex-col gap-4" validationErrors={validationErrors}>
                     <Input
                             type="text"
                             name="contact"
-                            placeholder={phoneEnabled ? 'Enter your email address or phone number' : 'Enter your email address'}
+                            placeholder={'Enter your email address or phone number'}
                             value={input}
                             onBlur={() => isPhone ? setInput(formatE164PhoneNumber(input)) : setInput(input.trim())}
                             onChange={(e) => {
                                 setInput(e.target.value)
                                 setIsPhone(looksLikePhone(e.target.value))
-                                setMembershipHelpError(undefined)
+                                onClearMembershipHelp()
                             }}
                             required
                         />
+                        <Button type="submit">
+                        {isPhone ? 'Send verification code' : 'Sign in with email'}
+                    </Button>
+                </Form>
+            )}
+        </>
+    )
+}
+
+export default function SignInContent() {
+    const [awaitingCode, setAwaitingCode] = useState(false)
+    const [membershipHelpOpen, setMembershipHelpOpen] = useState(false)
+    const [membershipHelpError, setMembershipHelpError] = useState<string | undefined>()
+    const searchParams = useSearchParams()
+    const returnUrl = searchParams.get('returnUrl') || '/'
+
+    const handleMissingMembership = () => {
+        setMembershipHelpError(noMembershipError)
+    }
+
+    const handleClearMembershipHelp = () => {
+        setMembershipHelpError(undefined)
+        setMembershipHelpOpen(false)
+    }
+
+    return (
+        <>
+            <h1 className="mt-8">Sign In</h1>
+
+            <div className="flex flex-col gap-4 items-stretch w-full max-w-md text-center mx-auto">
+                {!awaitingCode && (
+                    <>
+                        <p>Please sign in to continue. If you are not a member, please contact the club administrator.</p>
+                        <Alert color="warning">
+                            You must sign in with the same email address or phone number you have registered with the club.
+                        </Alert>
                         {membershipHelpError && (
                             <Alert color="danger">
                                 <div className="flex items-center justify-between gap-3">
@@ -600,62 +573,17 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange }: {
                                 </div>
                             </Alert>
                         )}
-                        {process.env.NODE_ENV === 'development' && !isPhone && (
-                            <Input
-                                type="password"
-                                name="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                            />
-                        )}
-                        <Button type="submit">
-                        {isPhone ? 'Send verification code' : 'Sign in with email'}
-                    </Button>
-                </Form>
-            )}
-        </>
-    )
-}
-
-// ---- Main component ----
-
-export default function SignInContent() {
-    const [wrongBrowser, setWrongBrowser] = useState(false)
-    const [awaitingCode, setAwaitingCode] = useState(false)
-    const router = useRouter()
-    const searchParams = useSearchParams()
-    const returnUrl = searchParams.get('returnUrl') || '/'
-    const { roles } = useRoles()
-
-    useEffect(() => {
-        const auth = getAuth()
-        if (auth.currentUser && !wrongBrowser && roles.length > 0) {
-            router.push(returnUrl)
-        }
-    }, [roles, wrongBrowser, returnUrl, router])
-
-    return (
-        <>
-            <h1 className="mt-8">Sign In</h1>
-
-            <LinkHandler returnUrl={returnUrl} onWrongBrowser={() => setWrongBrowser(true)} />
-
-            {!wrongBrowser && (
-                <div className="flex flex-col gap-4 items-stretch w-full max-w-md text-center mx-auto">
-                    {!awaitingCode && (
-                        <>
-                            <p>Please sign in to continue. If you are not a member, please contact the club administrator.</p>
-                            <Alert color="warning">
-                                You must sign in with the same email address or phone number you have registered with the club.
-                            </Alert>
-                            <SignInWithGoogle returnUrl={returnUrl} />
-                            or
-                        </>
-                    )}
-                    <SignInWithCredentials returnUrl={returnUrl} onAwaitingCodeChange={setAwaitingCode} />
-                </div>
-            )}
+                        <SignInWithGoogle returnUrl={returnUrl} onMissingMembership={handleMissingMembership} />
+                        or
+                    </>
+                )}
+                <SignInWithCredentials
+                    returnUrl={returnUrl}
+                    onAwaitingCodeChange={setAwaitingCode}
+                    onMissingMembership={handleMissingMembership}
+                    onClearMembershipHelp={handleClearMembershipHelp}
+                />
+            </div>
         </>
     )
 }

@@ -75,6 +75,7 @@ export interface SendEmailSignInCodeResponse {
 export interface VerifyEmailSignInCodeResponse {
     success: boolean
     customToken?: string // JWT token for custom sign-in
+    notMember?: boolean
     error?: string
     lockoutRemainingMs?: number // Milliseconds remaining in lockout period
 }

@@ -16,14 +16,16 @@ function generateEmailSignInCode(): { code: string; hash: string } {
     return { code, hash }
 }
 
-async function checkEmailMembership(email: string): Promise<{ exists: boolean; userId?: string }> {
+async function checkEmailMembership(email: string): Promise<{ exists: boolean; userId?: string; isMember: boolean }> {
     const auth = getAdminApp().auth()
     try {
         const user = await auth.getUserByEmail(email)
-        return { exists: true, userId: user.uid }
+        const roles = user.customClaims?.roles
+        const isMember = Array.isArray(roles) && roles.includes('member')
+        return { exists: true, userId: user.uid, isMember }
     } catch (error: unknown) {
         if ((error as { code?: string }).code === 'auth/user-not-found') {
-            return { exists: false }
+            return { exists: false, isMember: false }
         }
         throw error
     }
@@ -54,7 +56,7 @@ async function sendEmailSignInCodeEmail(email: string, code: string): Promise<{ 
             })
 
             await transporter.sendMail({
-                from: smtp.fromEmail,
+                from: `VCGH <${smtp.fromEmail}>`,
                 to: email,
                 subject: 'Your VCGH Signups Verification Code',
                 text: `Your verification code is: ${code}\n\nThis code expires in 15 minutes.`,
@@ -80,15 +82,6 @@ export async function sendEmailSignInCode(
         span.setAttribute('email', normalizedEmail)
 
         try {
-            // Check if member exists
-            const membership = await checkEmailMembership(normalizedEmail)
-            if (!membership.exists) {
-                return {
-                    success: false,
-                    error: 'No membership is associated with that email address.',
-                }
-            }
-
             const db = getAdminApp().firestore()
             const now = Date.now()
             const fifteenMinutes = 15 * 60 * 1000
@@ -268,17 +261,17 @@ export async function verifyEmailSignInCode(
 
             // Code is valid - mark as used and get user
             const membership = await checkEmailMembership(normalizedEmail)
-            if (!membership.exists || !membership.userId) {
-                return {
-                    success: false,
-                    error: 'User account not found.',
-                }
-            }
-
-            // Mark code as used
             await codeRecord.ref.update({
                 usedAt: admin.firestore.Timestamp.now(),
             })
+
+            if (!membership.exists || !membership.userId || !membership.isMember) {
+                return {
+                    success: false,
+                    notMember: true,
+                    error: 'No membership is associated with that account. Check your details.',
+                }
+            }
 
             // Create custom token for sign-in
             const customToken = await auth.createCustomToken(membership.userId)
