@@ -15,7 +15,10 @@ function toCalendarEventId(firestoreId: string): string {
 
 export const CopyEventsToCalendar = onDocumentWritten({
     document: "events/{eventId}",
-    region, secrets: [appSecretsParam]
+    region, secrets: [appSecretsParam],
+    maxInstances: 1,
+    minInstances: 0,
+    retry: true
 }, async (event) => {
     const secrets = getAppSecrets()
     const calendarId = secrets.google.calendarId
