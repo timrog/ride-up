@@ -116,10 +116,14 @@ async function sendSignupNotifications(
         return
     }
 
+    const body = totalSignups > 1
+        ? `${newSignupNames} and ${totalSignups - 1} ${totalSignups > 2 ? 'others' : 'other'} signed up`
+        : `${newSignupNames} just signed up for ${eventData.title}!`
+
     const message : MulticastMessage = {
         notification: {
             title: eventData.title,
-            body: `${newSignupNames} signed up. ${totalSignups} in total.`
+            body
         },
         webpush:{
             fcmOptions: {

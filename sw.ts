@@ -31,7 +31,7 @@ messaging.onBackgroundMessage((payload) => {
         }
     }
     
-    return self.registration.showNotification("BACKGROUND: " + notificationTitle, notificationOptions)
+    return self.registration.showNotification(notificationTitle, notificationOptions)
 })
 
 self.addEventListener('notificationclick', function (event: any) {

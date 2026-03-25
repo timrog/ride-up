@@ -25,7 +25,7 @@ export function ForegroundMessaging() {
                         }
                     }
 
-                    const notification = new Notification("FOREGROUND: " + notificationTitle, notificationOptions)
+                    const notification = new Notification(notificationTitle, notificationOptions)
                     
                     notification.onclick = (event) => {
                         event.preventDefault()
