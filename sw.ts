@@ -16,24 +16,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig)
 const messaging = firebase.messaging()
 
-messaging.onBackgroundMessage((payload) => {
-    console.log('Received background message:', payload)
-    
-    const notificationTitle = payload.notification?.title || payload.data?.title || 'New notification'
-    const notificationOptions = {
-        body: payload.notification?.body || payload.data?.body || '',
-        icon: payload.notification?.icon || payload.data?.icon || '/app-icon.png',
-        badge: payload.notification?.badge || payload.data?.badge || '/app-icon.png',
-        tag: payload.data?.tag || 'notification',
-        data: {
-            url: payload.data?.url || payload.fcmOptions?.link || '/',
-            eventId: payload.data?.eventId
-        }
-    }
-    
-    return self.registration.showNotification(notificationTitle, notificationOptions)
-})
-
 self.addEventListener('notificationclick', function (event: any) {
     console.log('Notification clicked:', event.notification.data)
     event.notification.close()
