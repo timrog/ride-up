@@ -11,7 +11,8 @@ export const ProcessMemberPhoto = onMessagePublished({
     topic: "member-photos",
     region,
     maxInstances: 1,
-    minInstances: 0
+    minInstances: 0,
+    retry: true
 }, async (event) => {
     const { photoUrl, email, uid, cookies } = event.data.message.json as MemberPhotoMessage
 
