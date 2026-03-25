@@ -16,7 +16,7 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:615148465536:web:b91205f11bbc6e47602565
   - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    value: BCIcgaIuJgy2CFjQmOZ8ox1CtGigBweQa5i636MpnAdZBS4HuCweWrLmZAZgoYWJZaTstgupcW-XQZXlkqEHV0
+    value: BCIcgaIuJgy2CFjQmOZ8ox1CtGigBweQa5i636MpnAdZBS4HuCweWrLmZAZgoYWJZaTstgupcWJ-XQZXlkqEHV0
 
   # Observability
   - variable: OTEL_SERVICE_NAME

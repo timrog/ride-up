@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button, Switch } from '@heroui/react'
+import { useRouter } from 'next/navigation'
 import SelectableTags from '@/components/SelectableTags'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore'
@@ -14,6 +15,7 @@ import { addToast } from '@heroui/react'
 
 export default function NotificationsPage() {
     const { user } = useAuth()
+    const router = useRouter()
     const [preferences, setPreferences] = useState<NotificationPreferences>({
         tags: [],
         eventUpdates: true,
@@ -62,7 +64,11 @@ export default function NotificationsPage() {
 
     async function requestNotificationPermission() {
         if (!('Notification' in window)) {
-            alert('This browser does not support notifications')
+            addToast({
+                title: 'Notifications Unsupported',
+                description: 'This browser does not support notifications.',
+                color: 'danger'
+            })
             return
         }
 
@@ -90,7 +96,6 @@ export default function NotificationsPage() {
         setIsSaving(true)
         try {
             const messaging = await getMessagingInstance()
-            debugger
             if (!messaging) {
                 throw new Error('Messaging not supported')
             }
@@ -102,8 +107,13 @@ export default function NotificationsPage() {
 
             await navigator.serviceWorker.ready
 
+            const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+            if (!vapidKey) {
+                throw new Error('VAPID key not configured')
+            }
+
             const token = await getToken(messaging, {
-                vapidKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+                vapidKey,
                 serviceWorkerRegistration: registration
             })
 
@@ -121,10 +131,19 @@ export default function NotificationsPage() {
                 updatedAt: new Date()
             }, { merge: true })
 
-            alert('Preferences saved successfully!')
+            addToast({
+                title: 'Preferences Saved',
+                description: 'Your notification preferences were saved successfully.',
+                color: 'success'
+            })
+            router.push('/')
         } catch (error) {
             console.error('Error saving preferences:', error)
-            alert('Failed to save preferences. Please enable notifications first.')
+            addToast({
+                title: 'Save Failed',
+                description: 'Failed to save preferences. Please enable notifications first.',
+                color: 'danger'
+            })
         } finally {
             setIsSaving(false)
         }
