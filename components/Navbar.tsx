@@ -54,8 +54,7 @@ export default function () {
             <DropdownSection>
               {roles?.includes('admin') ?
                 <DropdownItem key="admin" color="primary" href="/admin" classNames={itemStyle}>Admin diagnostics</DropdownItem> : null}
-              {roles?.includes('admin') ?
-                <DropdownItem key="notifications" color="primary" href="/notifications" classNames={itemStyle}>Notifications (beta)</DropdownItem> : null}
+              <DropdownItem key="notifications" color="primary" href="/notifications" classNames={itemStyle}>Notifications (beta)</DropdownItem>
             </DropdownSection>
           </DropdownMenu>
         </Dropdown>

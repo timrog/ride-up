@@ -29,8 +29,8 @@ export async function sendTestNotification() {
 
         const message = {
             notification: {
-                title: 'It\'s a nice day',
-                body: 'Stop messing with your notifications and ride your bike.'
+                title: 'Your notifications work',
+                body: 'Stop messing with them and ride your bike.'
             },
             webpush: { 
                 fcmOptions: {  

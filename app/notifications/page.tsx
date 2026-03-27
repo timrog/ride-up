@@ -13,6 +13,7 @@ import { NotificationPreferences } from "app/types"
 import { sendTestNotification } from './serverActions'
 import { addToast } from '@heroui/react'
 import { ArrowUpOnSquareIcon, PlusCircleIcon } from "@heroicons/react/24/outline"
+import WithAuth from "app/withAuthClient"
 
 interface BeforeInstallPromptEvent extends Event {
     prompt: () => Promise<void>
@@ -104,6 +105,7 @@ export default function NotificationsPage() {
             setNotificationPermission(permission)
         } catch (error) {
             console.error('Error requesting permission:', error)
+            throw error
         }
     }
 
@@ -153,6 +155,8 @@ export default function NotificationsPage() {
     async function savePreferences() {
         if (!user) return
         
+        await requestNotificationPermission()
+
         setIsSaving(true)
         try {
             const messaging = await getMessagingInstance()
@@ -193,7 +197,7 @@ export default function NotificationsPage() {
 
             addToast({
                 title: 'Preferences Saved',
-                description: 'Your notification preferences were saved successfully.',
+                description: 'Notifications have been updated and enabled.',
                 color: 'success'
             })
             router.push('/')
@@ -228,13 +232,11 @@ export default function NotificationsPage() {
         }
     }
 
-    function renderInstructions() {
-        const context = getBrowserContext()
-
+    function Instructions({ context }: { context: string }) {
         if (notificationPermission === 'granted') {
             return (
-                <div className="p-4 bg-success-50 rounded-lg mb-6">
-                    <p className="text-success-700">✓ Notifications are enabled</p>
+                <div className="p-4 bg-success-50 rounded-lg mb-6 text-success-700">
+                    ✓ Notifications are enabled
                 </div>
             )
         }
@@ -252,28 +254,7 @@ export default function NotificationsPage() {
                         </ol>
                     </div>
                 )
-            
-            case 'ios-pwa':
-            case 'android-pwa':
-            case 'desktop':
-                return (
-                    <div className="p-4 bg-primary-50 rounded-lg mb-6">
-                        <p className="text-primary-700 mb-3">Enable push notifications to receive updates about rides</p>
-                        <Button 
-                            color="primary" 
-                            onPress={requestNotificationPermission}
-                            isDisabled={notificationPermission === 'denied'}
-                        >
-                            Enable Notifications
-                        </Button>
-                        {notificationPermission === 'denied' && (
-                            <p className="text-danger-600 mt-2 text-sm">
-                                Notifications are blocked. Please enable them in your browser settings.
-                            </p>
-                        )}
-                    </div>
-                )
-            
+
             case 'android-browser':
                 return (
                     <div className="p-4 bg-warning-50 rounded-lg mb-6">
@@ -305,11 +286,7 @@ export default function NotificationsPage() {
     }
 
     if (!user) {
-        return (
-            <div className="container mx-auto p-6">
-                <p>Please sign in to manage notification preferences</p>
-            </div>
-        )
+        return null
     }
 
     if (isLoading) {
@@ -320,15 +297,18 @@ export default function NotificationsPage() {
         )
     }
 
+    var context = getBrowserContext()
+
     return (
         <div className="container mx-auto p-6 max-w-2xl">
             <h1 className="text-3xl font-bold mb-6">Notification Preferences</h1>
 
-            {renderInstructions()}
+            <Instructions context={context} />
 
+            {context != "ios-browser" && context != "android-browser" && (
             <div className="space-y-6">
                 <div>
-                    <h2 className="text-xl font-semibold mb-3">Notify me about new events with these tags:</h2>
+                        <h2 className="text-xl font-semibold mb-3">Notify me whenever someone posts one of these...</h2>
                     <SelectableTags 
                         value={preferences.tags}
                         onValueChange={(tags) => setPreferences(prev => ({ ...prev, tags }))}
@@ -336,27 +316,29 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="space-y-3">
-                    <h2 className="text-xl font-semibold mb-3">Notification Settings:</h2>
+                        <h2 className="text-xl font-semibold mb-3">And let me know about...</h2>
                     
                     <Switch
                         isSelected={preferences.eventUpdates}
                         onValueChange={(checked) => setPreferences(prev => ({ ...prev, eventUpdates: checked }))}
                     >
-                        Updates to events I'm signed up to(changes, cancellations)
+                            Updates to rides I'm signed up to (changes, cancellations)
                     </Switch>
 
-                    <Switch
-                        isSelected={preferences.activityForLeader}
-                        onValueChange={(checked) => setPreferences(prev => ({ ...prev, activityForLeader: checked }))}
-                    >
-                        Activity on events I'm leading (signups, comments)
-                    </Switch>
+                        <WithAuth role="leader">
+                            <Switch
+                                isSelected={preferences.activityForLeader}
+                                onValueChange={(checked) => setPreferences(prev => ({ ...prev, activityForLeader: checked }))}
+                            >
+                                Activity on rides I'm leading (signups, comments)
+                            </Switch>
+                        </WithAuth>
 
                     <Switch
                         isSelected={preferences.activityForSignups}
                         onValueChange={(checked) => setPreferences(prev => ({ ...prev, activityForSignups: checked }))}
                     >
-                        Activity on events I'm signed up to (new signups, comments)
+                            Activity on rides I'm signed up to (new signups, comments)
                     </Switch>
                 </div>
 
@@ -365,8 +347,7 @@ export default function NotificationsPage() {
                         color="primary"
                         size="lg"
                         onPress={savePreferences}
-                        isLoading={isSaving}
-                        isDisabled={notificationPermission !== 'granted'}
+                            isLoading={isSaving}
                     >
                         Save Preferences
                     </Button>
@@ -382,17 +363,13 @@ export default function NotificationsPage() {
                     </Button>
                 </div>
 
-                {notificationPermission !== 'granted' && (
-                    <p className="text-warning-600 text-sm">
-                        Enable notifications above to save your preferences
-                    </p>
-                )}
                 {preferences.tokens.length === 0 && notificationPermission === 'granted' && (
                     <p className="text-warning-600 text-sm">
                         Save your preferences first to enable test notifications
                     </p>
                 )}
             </div>
+            )}
         </div>
     )
 }
