@@ -1,10 +1,14 @@
 import admin from 'firebase-admin'
 import { onDocumentWritten } from 'firebase-functions/firestore'
-import { CalendarEvent, EventActivity, NotificationPreferences, NotificationSubscriber } from '../../app/types'
+import { CalendarEvent, NotificationPreferences, NotificationSubscriber } from '../../app/types'
 import { AggregatedNotifications } from './aggregateNotifications'
 import { MulticastMessage, SendResponse } from "firebase-admin/messaging"
 
 const region = 'europe-north1'
+
+function withNotificationSource(path: string, source: string): string {
+    return `${path}?ns=${source}`
+}
 
 export const sendEventNotifications = onDocumentWritten(
     {
@@ -83,27 +87,12 @@ async function initializeNotificationSubscribers(eventId: string, userId: string
     }
 
     const privateRef = db.doc(`events/${eventId}/activity/private`)
-
-    await db.runTransaction(async (transaction) => {
-        const privateDoc = await transaction.get(privateRef)
-        const privateData = privateDoc.data() as EventActivity || { signups: {}, comments: [], signupIds: []}
-        let notificationSubscribers = privateData.notificationSubscribers || []
-
-        // Remove existing entry for this user (if any)
-        notificationSubscribers = notificationSubscribers.filter((sub: NotificationSubscriber) => sub.userId !== userId)
-
-        // Add new entry with user's preferences
-        notificationSubscribers.push({
-            userId,
+    await privateRef.set({
+        [`notificationSubscribers.${userId}`]: {
             eventUpdates: prefsData.eventUpdates ?? true,
             activity: prefsData.activityForLeader ?? true
-        })
-
-        transaction.set(privateRef, {
-            ...privateData,
-            notificationSubscribers
-        } as EventActivity, { merge: true })
-    })
+        }
+    }, { merge: true })
 
     console.log(`Initialized notification subscribers for event ${eventId} with creator ${userId}`)
 }
@@ -141,6 +130,7 @@ async function sendNewEventNotifications(eventId: string, eventData: CalendarEve
     console.log(`Found ${tokens.size} tokens for users subscribed to event tags`)
 
     const tokenArray = Array.from(tokens)
+    const source = 'new-event'
 
     // Send FCM notifications
     const message = {
@@ -150,13 +140,13 @@ async function sendNewEventNotifications(eventId: string, eventData: CalendarEve
         },
         webpush: { 
             fcmOptions: {  
-                link: `/events/${eventId}`
+                link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
             eventId,
-            url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`,
-            tag: 'new-event'
+            url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
+            tag: source
         },
         tokens: tokenArray
     }
@@ -182,6 +172,8 @@ async function sendLeaderChangeNotification(eventId: string, newLeaderId: string
         return
     }
 
+    const source = 'leader-change'
+
     const message = {
         notification: {
             title: 'You\'re the leader',
@@ -189,13 +181,13 @@ async function sendLeaderChangeNotification(eventId: string, newLeaderId: string
         },
         webpush: { 
             fcmOptions: {  
-                link: `/events/${eventId}`
+                link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
             eventId,
-            url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`,
-            tag: 'leader-change'
+            url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
+            tag: source
         },
         tokens
     }
@@ -217,9 +209,9 @@ async function sendCancellationNotifications(eventId: string, eventData: Calenda
     
     const privateDoc = await db.doc(`events/${eventId}/activity/private`).get()
     const privateData = privateDoc.data()
-    const notificationSubscribers = privateData?.notificationSubscribers || []
+    const notificationSubscribers = privateData?.notificationSubscribers || {}
 
-    if (notificationSubscribers.length === 0) {
+    if (Object.keys(notificationSubscribers).length === 0) {
         console.log('No notification subscribers for cancelled event')
         return
     }
@@ -232,6 +224,8 @@ async function sendCancellationNotifications(eventId: string, eventData: Calenda
         return
     }
 
+    const source = 'event-cancelled'
+
     const message : MulticastMessage = {
         notification: {
             title: 'Event cancelled',
@@ -239,13 +233,13 @@ async function sendCancellationNotifications(eventId: string, eventData: Calenda
         },
         webpush: { 
             fcmOptions: {  
-                link: `/events/${eventId}`
+                link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
             eventId,
-            url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`,
-            tag: 'event-cancelled'
+            url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
+            tag: source
         },
         tokens
     }
@@ -263,9 +257,9 @@ async function sendUpdateNotifications(eventId: string, eventData: CalendarEvent
     
     const privateDoc = await db.doc(`events/${eventId}/activity/private`).get()
     const privateData = privateDoc.data()
-    const notificationSubscribers = privateData?.notificationSubscribers || []
+    const notificationSubscribers = privateData?.notificationSubscribers || {}
 
-    if (notificationSubscribers.length === 0) {
+    if (Object.keys(notificationSubscribers).length === 0) {
         console.log('No notification subscribers for updated event')
         return
     }
@@ -278,6 +272,8 @@ async function sendUpdateNotifications(eventId: string, eventData: CalendarEvent
         return
     }
 
+    const source = 'event-updated'
+
     const message : MulticastMessage= {
         notification: {
             title: 'Event updated',
@@ -285,13 +281,13 @@ async function sendUpdateNotifications(eventId: string, eventData: CalendarEvent
         },
         webpush: { 
             fcmOptions: {  
-                link: `/events/${eventId}`
+                link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
             eventId,
-            url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`,
-            tag: 'event-updated'
+            url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
+            tag: source
         },
         tokens
     }
@@ -304,12 +300,12 @@ async function sendUpdateNotifications(eventId: string, eventData: CalendarEvent
     }
 }
 
-async function fetchTokensForSubscribers(subscribers: NotificationSubscriber[]): Promise<string[]> {
+async function fetchTokensForSubscribers(subscribers: { [userId: string]: NotificationSubscriber }): Promise<string[]> {
     const db = admin.firestore()
     const tokens: string[] = []
 
-    for (const subscriber of subscribers) {
-        const prefsDoc = await db.collection('notifications').doc(subscriber.userId).get()
+    for (const userId of Object.keys(subscribers)) {
+        const prefsDoc = await db.collection('notifications').doc(userId).get()
         const userTokens = prefsDoc.data()?.tokens || []
         tokens.push(...userTokens)
     }

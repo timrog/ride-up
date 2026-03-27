@@ -192,19 +192,10 @@ export async function addSignup(eventId: string, signupKey: string) {
                 }
 
                 if (prefsData?.tokens && prefsData.tokens.length > 0) {
-                    const activityDoc = await activityRef.get()
-                    const activityData = activityDoc.data() || {}
-                    let notificationSubscribers = activityData.notificationSubscribers || []
-
-                    notificationSubscribers = notificationSubscribers.filter((sub: { userId: string }) => sub.userId !== user.uid)
-
-                    notificationSubscribers.push({
-                        userId: user.uid,
+                    updateData[`notificationSubscribers.${user.uid}`] = {
                         eventUpdates: prefsData.eventUpdates ?? true,
                         activity: prefsData.activityForSignups ?? true
-                    })
-
-                    updateData.notificationSubscribers = notificationSubscribers
+                    }
                 }
 
                 await activityRef.update(updateData)
@@ -217,15 +208,13 @@ export async function addSignup(eventId: string, signupKey: string) {
                             [signupKey]: signupRecord,
                         },
                         comments: [],
-                        notificationSubscribers: []
+                        notificationSubscribers: {}
                     }
 
                     if (prefsData?.tokens && prefsData.tokens.length > 0) {
-                        newData.notificationSubscribers = [{
-                            userId: user.uid,
-                            eventUpdates: prefsData.eventUpdates ?? true,
-                            activity: prefsData.activityForSignups ?? true
-                        }]
+                        newData.notificationSubscribers = {
+                            [user.uid]: { eventUpdates: prefsData.eventUpdates ?? true, activity: prefsData.activityForSignups ?? true }
+                        }
                     }
 
                     await activityRef.set(newData)
@@ -247,14 +236,17 @@ export async function removeSignup(eventId: string, signupKey: string) {
     return withSpan('serverAction.removeSignup', async (span) => {
         span.setAttributes({ eventId, signupKey })
         try {
-            const { adminDb } = await initAuth()
+            const { adminDb, currentUser } = await initAuth()
 
             const activityRef = adminDb.collection('events').doc(eventId).collection('activity').doc('private')
 
-            await activityRef.update({
+            const updateData: Record<string, unknown> = {
                 [`signups.${signupKey}`]: admin.firestore.FieldValue.delete(),
-                signupIds: admin.firestore.FieldValue.arrayRemove(signupKey)
-            })
+                signupIds: admin.firestore.FieldValue.arrayRemove(signupKey),
+                [`notificationSubscribers.${currentUser.uid}`]: admin.firestore.FieldValue.delete(),
+            }
+
+            await activityRef.update(updateData)
 
             return { success: true }
         } catch (error) {

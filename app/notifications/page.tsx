@@ -12,6 +12,12 @@ import { getToken } from 'firebase/messaging'
 import { NotificationPreferences } from "app/types"
 import { sendTestNotification } from './serverActions'
 import { addToast } from '@heroui/react'
+import { ArrowUpOnSquareIcon, PlusCircleIcon } from "@heroicons/react/24/outline"
+
+interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
 
 export default function NotificationsPage() {
     const { user } = useAuth()
@@ -27,6 +33,7 @@ export default function NotificationsPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [isSendingTest, setIsSendingTest] = useState(false)
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+    const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
 
     useEffect(() => {
         if (user) {
@@ -37,6 +44,26 @@ export default function NotificationsPage() {
             setNotificationPermission(Notification.permission)
         }
     }, [user])
+
+    useEffect(() => {
+        function handleBeforeInstallPrompt(event: Event) {
+            const installEvent = event as BeforeInstallPromptEvent
+            installEvent.preventDefault()
+            setInstallPromptEvent(installEvent)
+        }
+
+        function handleAppInstalled() {
+            setInstallPromptEvent(null)
+        }
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+        window.addEventListener('appinstalled', handleAppInstalled)
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+            window.removeEventListener('appinstalled', handleAppInstalled)
+        }
+    }, [])
 
     async function loadPreferences() {
         if (!user) return
@@ -87,6 +114,39 @@ export default function NotificationsPage() {
             await sendTestNotification()
         } finally {
             setIsSendingTest(false)
+        }
+    }
+
+    async function handleInstallApp() {
+        if (!installPromptEvent) {
+            addToast({
+                title: 'Installation Not Available',
+                description: 'Use your browser menu and select "Add to Home screen".',
+                color: 'warning'
+            })
+            return
+        }
+
+        try {
+            await installPromptEvent.prompt()
+            const { outcome } = await installPromptEvent.userChoice
+
+            if (outcome === 'accepted') {
+                addToast({
+                    title: 'Installation Started',
+                    description: 'Follow your browser prompts to finish installing.',
+                    color: 'success'
+                })
+            }
+        } catch (error) {
+            console.error('Error showing install prompt:', error)
+            addToast({
+                title: 'Install Failed',
+                description: 'Could not open the install prompt. Try browser menu > Add to Home screen.',
+                color: 'danger'
+            })
+        } finally {
+            setInstallPromptEvent(null)
         }
     }
 
@@ -154,7 +214,6 @@ export default function NotificationsPage() {
         const isIOS = /iPad|iPhone|iPod/.test(ua)
         const isAndroid = /Android/.test(ua)
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-        const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua)
 
         if (isIOS && !isStandalone) {
             return 'ios-browser'
@@ -186,10 +245,10 @@ export default function NotificationsPage() {
                     <div className="p-4 bg-warning-50 rounded-lg mb-6">
                         <p className="text-warning-700 font-semibold mb-2">iOS Safari Instructions:</p>
                         <ol className="list-decimal list-inside space-y-1 text-warning-700">
-                            <li>Tap the Share button (square with arrow)</li>
-                            <li>Scroll down and tap "Add to Home Screen"</li>
+                            <li>In Safari, tap the Share button <ArrowUpOnSquareIcon className="inline-block w-4 h-4 ml-1" /></li>
+                            <li>Scroll down and tap "<PlusCircleIcon className="inline-block w-4 h-4 ml-1" /> Add to Home Screen"</li>
                             <li>Open the app from your home screen</li>
-                            <li>Return here to enable notifications</li>
+                            <li>Go to Notifications in the menu to setup your notifications</li>
                         </ol>
                     </div>
                 )
@@ -220,10 +279,22 @@ export default function NotificationsPage() {
                     <div className="p-4 bg-warning-50 rounded-lg mb-6">
                         <p className="text-warning-700 font-semibold mb-2">Android Instructions:</p>
                         <ol className="list-decimal list-inside space-y-1 text-warning-700">
-                            <li>Tap the menu (⋮) in your browser</li>
-                            <li>Select "Add to Home screen" or "Install app"</li>
+                            <li>Tap Install App below, or use browser menu (⋮)
+                                <div>
+                                    <Button
+                                        color="warning"
+                                        variant="flat"
+                                        className="mt-4"
+                                        onPress={handleInstallApp}
+                                        isDisabled={!installPromptEvent}
+                                    >
+                                        Install App
+                                    </Button>
+                                </div>
+                            </li>
+                            <li>Select "Add to Home screen" or "Install app" if prompted</li>
                             <li>Open the app from your home screen</li>
-                            <li>Return here to enable notifications</li>
+                            <li>Go to Notifications in the menu to setup your notifications.</li>
                         </ol>
                     </div>
                 )
@@ -271,7 +342,7 @@ export default function NotificationsPage() {
                         isSelected={preferences.eventUpdates}
                         onValueChange={(checked) => setPreferences(prev => ({ ...prev, eventUpdates: checked }))}
                     >
-                        Event updates (changes, cancellations)
+                        Updates to events I'm signed up to(changes, cancellations)
                     </Switch>
 
                     <Switch

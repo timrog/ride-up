@@ -1,6 +1,6 @@
 import admin from 'firebase-admin'
 import { onDocumentWritten } from 'firebase-functions/firestore'
-import { NotificationPreferences, NotificationSubscriber } from "../../app/types"
+import { NotificationPreferences } from "../../app/types"
 
 const region = 'europe-north1'
 
@@ -12,7 +12,8 @@ export type AggregatedNotifications = {
 export const aggregateNotifications = onDocumentWritten(
     {
         document: 'notifications/{userId}',
-        region
+        region,
+        retry: true
     },
     async (event) => {
         try {
@@ -136,7 +137,7 @@ async function updateFutureSignups(userId: string, preferences: NotificationPref
         .where(`signupIds`, 'array-contains', userId)
         .get()
 
-    const updates: Promise<void>[] = []
+    const updates: Promise<unknown>[] = []
 
     for (const privateDoc of eventsSnapshot.docs) {
         const eventId = privateDoc.ref.parent.parent?.id
@@ -153,22 +154,11 @@ async function updateFutureSignups(userId: string, preferences: NotificationPref
 
         // Update notificationSubscribers
         updates.push(
-            db.runTransaction(async (transaction) => {
-                const privateDocSnap = await transaction.get(privateDoc.ref)
-                const privateData = privateDocSnap.data() || {}
-                let notificationSubscribers = privateData.notificationSubscribers || []
-
-                // Remove existing entry for this user
-                notificationSubscribers = notificationSubscribers.filter((sub: any) => sub.userId !== userId)
-
-                // Add updated entry
-                notificationSubscribers.push({
-                    userId,
+            privateDoc.ref.update({
+                [`notificationSubscribers.${userId}`]: {
                     eventUpdates: preferences.eventUpdates ?? true,
-                    activity: preferences.activityForSignups ?? true
-                })
-
-                transaction.update(privateDoc.ref, { notificationSubscribers })
+                    activity: preferences.activityForSignups ?? true 
+                }
             })
         )
     }
@@ -199,25 +189,11 @@ async function updateCreatedEvents(userId: string, preferences: NotificationPref
         const privateRef = db.doc(`events/${eventDoc.id}/activity/private`)
 
         updates.push(
-            db.runTransaction(async (transaction) => {
-                const privateDoc = await transaction.get(privateRef)
-                const privateData = privateDoc.data() || {}
-                let notificationSubscribers = privateData.notificationSubscribers || []
-
-                // Remove existing entry for this user
-                notificationSubscribers = notificationSubscribers.filter((sub: any) => sub.userId !== userId)
-
-                // Add updated entry
-                notificationSubscribers.push({
-                    userId,
+            privateRef.update({
+                [`notificationSubscribers.${userId}`]: {
                     eventUpdates: preferences.eventUpdates ?? true,
-                    activity: preferences.activityForLeader ?? true
-                })
-
-                transaction.set(privateRef, { 
-                    ...privateData,
-                    notificationSubscribers 
-                }, { merge: true })
+                    activity: preferences.activityForLeader ?? true 
+                }
             })
         )
     }
@@ -236,16 +212,11 @@ async function removeUserFromAllNotificationSubscribers(userId: string) {
     const updates: Promise<any>[] = []
 
     for (const privateDoc of activities.docs) {
-        const data = privateDoc.data()
-        const notificationSubscribers = data.notificationSubscribers || []
-
-        if (notificationSubscribers.some((sub: NotificationSubscriber) => sub.userId === userId)) {
-            updates.push(
-                privateDoc.ref.update({
-                    notificationSubscribers: notificationSubscribers.filter((sub: NotificationSubscriber) => sub.userId !== userId)
-                })
-            )
-        }
+        updates.push(
+            privateDoc.ref.update({
+                [`notificationSubscribers.${userId}`]: admin.firestore.FieldValue.delete()
+            })
+        )
     }
 
     await Promise.all(updates)

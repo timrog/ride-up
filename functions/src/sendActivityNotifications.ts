@@ -6,6 +6,11 @@ import { AggregatedNotifications } from "./aggregateNotifications"
 
 const region = 'europe-north1'
 
+function withNotificationSource(path: string, source: string): string {
+    return `${path}?ns=${source}`
+}
+
+
 export const sendActivityNotifications = onDocumentWritten(
     {
         document: 'events/{eventId}/activity/private',
@@ -29,7 +34,7 @@ export const sendActivityNotifications = onDocumentWritten(
 
             if (newSignupKeys.length > 0) {
                 console.log(`Detected ${newSignupKeys.length} new signup(s) for event ${eventId}`)
-                await sendSignupNotifications(eventId, newSignupKeys, afterSignups, afterData.notificationSubscribers || [])
+                await sendSignupNotifications(eventId, newSignupKeys, afterSignups, afterData.notificationSubscribers || {})
             }
 
             // Detect new comments
@@ -39,7 +44,7 @@ export const sendActivityNotifications = onDocumentWritten(
             if (afterComments.length > beforeComments.length) {
                 const newComments = afterComments.slice(beforeComments.length)
                 console.log(`Detected ${newComments.length} new comment(s) for event ${eventId}`)
-                await sendCommentNotifications(eventId, newComments, afterData.notificationSubscribers || [])
+                await sendCommentNotifications(eventId, newComments, afterData.notificationSubscribers || {})
             }
 
         } catch (error) {
@@ -53,7 +58,7 @@ async function sendSignupNotifications(
     eventId: string,
     newSignupKeys: string[],
     allSignups: any,
-    notificationSubscribers: NotificationSubscriber[]
+    notificationSubscribers: { [userId: string] : NotificationSubscriber }
 ) {
     const db = admin.firestore()
 
@@ -67,7 +72,7 @@ async function sendSignupNotifications(
     }
 
     // Filter subscribers who want activity notifications
-    const subscribersWantingActivity = notificationSubscribers.filter((sub: any) => sub.activity === true)
+    const subscribersWantingActivity = Object.entries(notificationSubscribers).filter(([, prefs]) => prefs.activity === true)
 
     if (subscribersWantingActivity.length === 0) {
         console.log('No subscribers want activity notifications')
@@ -87,11 +92,11 @@ async function sendSignupNotifications(
     const tokens: string[] = []
     const tokenToUserId: { [token: string]: string } = {}
 
-    for (const subscriber of subscribersWantingActivity) {
-        const userTokens = aggregatedData.userTokens?.[subscriber.userId] || []
+    for (const [userId] of subscribersWantingActivity) {
+        const userTokens = aggregatedData.userTokens?.[userId] || []
         for (const token of userTokens) {
             tokens.push(token)
-            tokenToUserId[token] = subscriber.userId
+            tokenToUserId[token] = userId
         }
     }
 
@@ -120,6 +125,8 @@ async function sendSignupNotifications(
         ? `${newSignupNames} and ${totalSignups - 1} ${totalSignups > 2 ? 'others' : 'other'} signed up`
         : `${newSignupNames} just signed up for ${eventData.title}!`
 
+    const source = 'activity-signup'
+
     const message : MulticastMessage = {
         notification: {
             title: eventData.title,
@@ -127,12 +134,13 @@ async function sendSignupNotifications(
         },
         webpush:{
             fcmOptions: {
-                link: `https://localhost:3000/events/${eventId}`,
+                link: withNotificationSource(`/events/${eventId}`, source),
             }
         },
         data: {
             eventId,
-            tag: 'activity-signup'
+            url: withNotificationSource(`/events/${eventId}`, source),
+            tag: source
         },
         tokens: filteredTokens
     }
@@ -149,7 +157,7 @@ async function sendSignupNotifications(
 async function sendCommentNotifications(
     eventId: string,
     newComments: any[],
-    notificationSubscribers: any[]
+    notificationSubscribers: { [userId: string] : NotificationSubscriber }
 ) {
     const db = admin.firestore()
 
@@ -163,7 +171,7 @@ async function sendCommentNotifications(
     }
 
     // Filter subscribers who want activity notifications
-    const subscribersWantingActivity = notificationSubscribers.filter((sub: any) => sub.activity === true)
+    const subscribersWantingActivity = Object.entries(notificationSubscribers).filter(([, prefs]) => prefs.activity === true)
 
     if (subscribersWantingActivity.length === 0) {
         console.log('No subscribers want activity notifications')
@@ -183,11 +191,11 @@ async function sendCommentNotifications(
     const tokens: string[] = []
     const tokenToUserId: { [token: string]: string } = {}
 
-    for (const subscriber of subscribersWantingActivity) {
-        const userTokens = aggregatedData.userTokens?.[subscriber.userId] || []
+    for (const [userId] of subscribersWantingActivity) {
+        const userTokens = aggregatedData.userTokens?.[userId] || []
         for (const token of userTokens) {
             tokens.push(token)
-            tokenToUserId[token] = subscriber.userId
+            tokenToUserId[token] = userId
         }
     }
 
@@ -213,6 +221,8 @@ async function sendCommentNotifications(
         return
     }
 
+    const source = 'activity-comment'
+
     const message : MulticastMessage = {
         notification: {
             title: commenterName,
@@ -220,13 +230,13 @@ async function sendCommentNotifications(
         },
         webpush: { 
             fcmOptions: {  
-                link: `/events/${eventId}`
+                link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
             eventId,
-            url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`,
-            tag: 'activity-comment'
+            url: withNotificationSource(`/events/${eventId}`, source),
+            tag: source
         },
         tokens: filteredTokens
     }

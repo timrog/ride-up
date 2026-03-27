@@ -17,11 +17,16 @@ export interface CalendarEvent {
     isCancelled: boolean
 }
 
+export type NotificationSubscriber = { 
+    eventUpdates: boolean; 
+    activity: boolean 
+}
+
 export interface EventActivity {
     signupIds: string[]
     signups: { [userId: string]: Signup }
     comments: Comment[],
-    notificationSubscribers: NotificationSubscriber[]
+    notificationSubscribers: { [userId: string]: NotificationSubscriber }
 }
 
 export interface Signup {
@@ -49,33 +54,4 @@ export interface NotificationPreferences {
     tokens: string[]
 }
 
-export interface NotificationSubscriber {
-    userId: string
-    eventUpdates: boolean
-    activity: boolean
-}
 
-export interface SignInCode {
-    email: string
-    codeHash: string
-    createdAt: Timestamp
-    expiresAt: Timestamp
-    usedAt?: Timestamp | null
-    invalidatedAt?: Timestamp | null
-    failedAttempts: number
-    lockExpiresAt?: Timestamp | null
-}
-
-export interface SendEmailSignInCodeResponse {
-    success: boolean
-    error?: string
-    nextResendAt?: number // Unix timestamp in ms when next resend is allowed
-}
-
-export interface VerifyEmailSignInCodeResponse {
-    success: boolean
-    customToken?: string // JWT token for custom sign-in
-    notMember?: boolean
-    error?: string
-    lockoutRemainingMs?: number // Milliseconds remaining in lockout period
-}

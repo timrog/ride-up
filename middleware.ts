@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logRequest } from '@/lib/logging'
 import { trace } from '@opentelemetry/api'
-import { enrichSpan } from "./lib/tracing"
+import { enrichSpanFromSession as enrichSpanFromSession, enrichSpanFromRequest } from "./lib/tracing"
 
 export function middleware(request: NextRequest) {
     const sessionToken = request.cookies.get('__session')?.value
@@ -16,7 +16,8 @@ export function middleware(request: NextRequest) {
     })
 
     const span = trace.getActiveSpan()
-    enrichSpan(span, sessionToken)
+    enrichSpanFromSession(span, sessionToken)
+    enrichSpanFromRequest(span, `${request.nextUrl.pathname}${request.nextUrl.search}`)
 
     return NextResponse.next()
 }

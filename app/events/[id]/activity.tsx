@@ -18,7 +18,7 @@ interface ExtraUser {
 }
 
 export default function Activity({ id, isActive }: { id: string, isActive: boolean }) {
-    const newActivity = { signups: {}, comments: [], signupIds: [], notificationSubscribers: [] } as EventActivity
+    const newActivity = { signups: {}, comments: [], signupIds: [], notificationSubscribers: {} } as EventActivity
     const [activity, setActivity] = useState(newActivity)
     const [comment, setComment] = useState("")
     const [commentBusy, setCommentBusy] = useState(false)

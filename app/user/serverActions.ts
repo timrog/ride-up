@@ -6,7 +6,11 @@ import { getAppSecrets } from '@/lib/secrets'
 import { withSpan } from '@/lib/tracing'
 import { SpanStatusCode } from "@opentelemetry/api"
 import nodemailer from 'nodemailer'
-import { SendEmailSignInCodeResponse, VerifyEmailSignInCodeResponse, SignInCode } from '../types'
+import { SendEmailSignInCodeResponse, VerifyEmailSignInCodeResponse, SignInCode } from './types'
+
+const resendCooldown = 30 * 1000
+const retryCooldown = 15 * 60 * 1000
+const numberOfAttemptsBeforeLockout = 10
 
 function generateEmailSignInCode(): { code: string; hash: string } {
     const code = Math.floor(Math.random() * 1000000)
@@ -84,8 +88,6 @@ export async function sendEmailSignInCode(
         try {
             const db = getAdminApp().firestore()
             const now = Date.now()
-            const fifteenMinutes = 15 * 60 * 1000
-            const thirtySeconds = 30 * 1000
 
             // Get all codes for this email and filter in memory
             const codesQuery = await db
@@ -109,10 +111,10 @@ export async function sendEmailSignInCode(
             // Check resend cooldown (30 seconds) - find most recent non-invalidated code
             const recentCode = codes.find(c => 
                 !c.invalidatedAt && 
-                c.createdAt.toMillis() > now - thirtySeconds
+                c.createdAt.toMillis() > now - resendCooldown
             )
             if (recentCode) {
-                const nextResendAt = (recentCode.createdAt?.toMillis() || now) + thirtySeconds
+                const nextResendAt = (recentCode.createdAt?.toMillis() || now) + resendCooldown
                 span.setAttribute('resendCooldownActive', true)
                 return {
                     success: false,
@@ -145,7 +147,7 @@ export async function sendEmailSignInCode(
                     email: normalizedEmail,
                     codeHash: hash,
                     createdAt: admin.firestore.Timestamp.now(),
-                    expiresAt: admin.firestore.Timestamp.fromDate(new Date(now + fifteenMinutes)),
+                    expiresAt: admin.firestore.Timestamp.fromDate(new Date(now + retryCooldown)),
                     usedAt: null,
                     invalidatedAt: null,
                     failedAttempts: 0,
@@ -247,13 +249,13 @@ export async function verifyEmailSignInCode(
                 }
 
                 // Set lockout if threshold reached
-                if (newFailedAttempts >= 10) {
-                    updateData.lockExpiresAt = admin.firestore.Timestamp.fromDate(new Date(now + 15 * 60 * 1000))
+                const isLockedOut = newFailedAttempts >= numberOfAttemptsBeforeLockout
+                if (isLockedOut) {
+                    updateData.lockExpiresAt = admin.firestore.Timestamp.fromDate(new Date(now + retryCooldown))
                 }
 
                 await codeRecord.ref.update(updateData)
 
-                const isLockedOut = newFailedAttempts >= 10
                 span.setAttribute('isLockedOut', isLockedOut)
                 return {
                     success: false,
