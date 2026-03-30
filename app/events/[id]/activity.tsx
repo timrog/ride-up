@@ -85,24 +85,24 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
         }))
     ]
 
-    function formatRelative(date: Date): string {
+    function formatRelative(datetime: Date): string {
         const now = new Date()
-        const isToday = date > new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const isToday = datetime > new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
         if (isToday) {
-            return date.toLocaleTimeString('en-GB', {
+            return datetime.toLocaleTimeString('en-GB', {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: false
             })
         }
 
+        const date = new Date(datetime.getFullYear(), datetime.getMonth(), datetime.getDate())
         const diffMs = now.getTime() - date.getTime()
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
         if (diffDays === 1) return 'yesterday'
         if (diffDays < 7) return `${diffDays} days ago`
-        if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
         return date.toLocaleDateString()
     }
 
