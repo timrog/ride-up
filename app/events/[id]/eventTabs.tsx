@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useState } from "react"
+import { ReactNode, useState, useEffect, useRef } from "react"
 import Activity from "./activity"
 import RouteEmbed from "./routeEmbed"
 import WithAuth from "app/withAuthClient"
@@ -19,6 +19,23 @@ interface EventTabsProps {
 
 export default function EventTabs({ id, details, routeLink, isActive }: EventTabsProps) {
     const [activeTab, setActiveTab] = useState('details')
+    const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+
+    useEffect(() => {
+        const onHashChange = () => {
+            const hash = window.location.hash.slice(1)
+            if (!hash) return
+            setActiveTab(hash)
+            const el = sectionRefs.current[hash]
+            if (el && window.matchMedia('(min-width: 768px)').matches) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        }
+
+        window.addEventListener('hashchange', onHashChange)
+        onHashChange()
+        return () => window.removeEventListener('hashchange', onHashChange)
+    }, [])
 
     const Signups = () => {
         return <>
@@ -26,7 +43,9 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
                 <Activity id={id} isActive={isActive} />
             </WithAuth>
 
-            <MembershipHelp />
+            <WithAuth>
+                <MembershipHelp />
+            </WithAuth>
 
             <WithAuth none>
                 <Button as={Link} color="primary" href={`/user?returnUrl=/events/${id}`}>Sign in to sign up</Button>
@@ -65,6 +84,8 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
             <div className="pb-16 md:pb-0">
                 {tabs.map(tab => (
                     <section key={tab.key}
+                        id={tab.key}
+                        ref={el => { sectionRefs.current[tab.key] = el }}
                         className={`${activeTab !== tab.key ? 'hidden' : ''} 
                             md:block md:border-b border-gray-200 last:border-b-0
                              bg-${tab.bg}`}>

@@ -245,12 +245,13 @@ export default function NotificationsPage() {
             case 'ios-browser':
                 return (
                     <div className="p-4 bg-warning-50 rounded-lg mb-6">
-                        <p className="text-warning-700 font-semibold mb-2">iOS Safari Instructions:</p>
+                        <p className="text-warning-700 font-semibold mb-2">iPhone instructions:</p>
+                        <p>To get notifications on this iPhone/iPad, you need follow a few simple steps to install Signups on to your home screen.</p>
                         <ol className="list-decimal list-inside space-y-1 text-warning-700">
                             <li>In Safari, tap the Share button <ArrowUpOnSquareIcon className="inline-block w-4 h-4 ml-1" /></li>
                             <li>Scroll down and tap "<PlusCircleIcon className="inline-block w-4 h-4 ml-1" /> Add to Home Screen"</li>
-                            <li>Open the app from your home screen</li>
-                            <li>Go to Notifications in the menu to setup your notifications</li>
+                            <li>Go to the home screen and open the installed app and sign in</li>
+                            <li>In the app, go to Notifications in the menu to setup your notifications</li>
                         </ol>
                     </div>
                 )
@@ -258,7 +259,8 @@ export default function NotificationsPage() {
             case 'android-browser':
                 return (
                     <div className="p-4 bg-warning-50 rounded-lg mb-6">
-                        <p className="text-warning-700 font-semibold mb-2">Android Instructions:</p>
+                        <p className="text-warning-700 font-semibold mb-2">Android instructions:</p>
+                        <p>To get notifications on this device, you need follow a few simple steps to install Signups on to your home screen.</p>
                         <ol className="list-decimal list-inside space-y-1 text-warning-700">
                             <li>Tap Install App below, or use browser menu (⋮)
                                 <div>
