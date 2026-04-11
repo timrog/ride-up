@@ -55,6 +55,9 @@ export default function AboutPage() {
                     <WithAuth except role="member">
                         <a href={`mailto:chair@vcgh.co.uk`}>Send an email</a> and we'll get on to it.
                     </WithAuth>
+                    <WithAuth none>
+                        <a href={`mailto:chair@vcgh.co.uk`}>Send an email</a> and we'll get on to it.
+                    </WithAuth>
                 </p>
                 <p><a href="https://github.com/timrog/ride-up">Source on Github (help us improve!)</a></p>
                 <p><a href="https://github.com/timrog/ride-up/issues/new">Report a technical issue</a></p>

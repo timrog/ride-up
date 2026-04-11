@@ -83,7 +83,7 @@ export async function sendEmailSignInCode(
 ): Promise<SendEmailSignInCodeResponse> {
     return withSpan('serverAction.sendEmailSignInCode', async (span) => {
         const normalizedEmail = email.toLowerCase().trim()
-        span.setAttribute('email', normalizedEmail)
+        span.setAttribute('user.email', normalizedEmail)
 
         try {
             const db = getAdminApp().firestore()

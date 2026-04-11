@@ -26,8 +26,12 @@ function getDisplayName(record: MemberRecord): string | null {
     return `${record["First name"]} ${record["Last name"]}`.trim()
 }
 
+function isPhoneNumberPublic(record: MemberRecord): boolean {
+    return record["Members directory"]?.toLowerCase() === 'yes' && !!record["Mobile number"]
+}
+
 function getPhoneNumber(record: MemberRecord): string | null {
-    return record["Members directory"]?.toLowerCase() === 'yes' && record["Mobile number"]
+    return record["Mobile number"]
         ? formatE164PhoneNumber(record["Mobile number"])
         : null
 }
@@ -136,13 +140,19 @@ export const SendMembersToAuth = onMessagePublished({
         const displayName = incoming ? getDisplayName(incoming) : null
         const phoneNumber = incoming ? getPhoneNumber(incoming) : null
         if (!existing) {
-            const createdUser = await auth.createUser({
-                email: incoming!.Email,
-                displayName: displayName || null,
-                phoneNumber: phoneNumber || null
-            })
-            created++
-            return createdUser
+            logger.info(`Creating user for ${incoming!.Email} with displayName: ${displayName} and phone: ${phoneNumber}`)
+            try {
+                const createdUser = await auth.createUser({
+                    email: incoming!.Email,
+                    displayName: displayName || undefined,
+                    phoneNumber: phoneNumber || undefined
+                })
+                created++
+                return createdUser
+            } catch (error) {
+                logger.error(`Error creating user for ${incoming!.Email}`, error)
+                throw error
+            }
         }
 
         const updates: admin.auth.UpdateRequest = {}
@@ -178,16 +188,19 @@ export const SendMembersToAuth = onMessagePublished({
         const newPhotoUrl = incoming["Photo"]?.trim()
 
         if (newPhotoUrl && newPhotoUrl !== photoURL) {
-            await photoTopic.publishMessage({
-                json: {
-                    photoUrl: newPhotoUrl,
-                    email: incoming.Email,
-                    uid: existing.uid,
-                    cookies: cookieValues
-                } as MemberPhotoMessage
-            })
-
-            photosQueued++
+            try {
+                await photoTopic.publishMessage({
+                    json: {
+                        photoUrl: newPhotoUrl,
+                        email: incoming.Email,
+                        uid: existing.uid,
+                        cookies: cookieValues
+                    } as MemberPhotoMessage
+                })
+                photosQueued++
+            } catch (error) {
+                logger.error(`Error queuing photo update for ${incoming.Email}`, error)
+            }
         }
     }
 
@@ -214,7 +227,8 @@ export const SendMembersToAuth = onMessagePublished({
 
     await Promise.all([...keys].map(async (key) => {
         const incoming = newUsers.get(key)
-        const phoneNumber = incoming ? getPhoneNumber(incoming) : null
+        const phoneNumber = incoming && isPhoneNumberPublic(incoming) ?
+            getPhoneNumber(incoming) : null
         const user = await getOrCreateUser(key, incoming)
 
         if (incoming && user) {
