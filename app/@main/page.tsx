@@ -1,11 +1,11 @@
 'use client'
-import { collection, query, getDocs, Timestamp, where, orderBy } from 'firebase/firestore'
+import { collection, query, getDocs, Timestamp, where, orderBy, collectionGroup } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import React, { Suspense, useState, useEffect } from 'react'
 import { CalendarEvent } from '../types'
 import { Card, CardBody, CardFooter, CardHeader } from "@heroui/card"
 import { toFormattedDate, toFormattedTime } from "../format"
-import { ClockIcon, MapPinIcon } from "@heroicons/react/24/outline"
+import { CalendarIcon, ClockIcon, MapPinIcon } from "@heroicons/react/24/outline"
 import { Chip } from "@heroui/chip"
 import { IconInline } from "@/components/IconLine"
 import TagFilter from "../TagFilter"
@@ -15,8 +15,40 @@ import WithAuth from "../withAuthClient"
 import { useSearchParams } from 'next/navigation'
 import { useRefresh } from '../providers'
 import { Skeleton } from "@heroui/react"
+import { useAuth } from '@/lib/hooks/useAuth'
 
 type EventWithId = CalendarEvent & { id: string }
+
+function EventCard({ event, includeDate = false }: { event: EventWithId, includeDate?: boolean }) {
+    return (
+        <Link href={`/events/${event.id}`} className="no-underline text-inherit">
+            <Card isHoverable>
+                <CardHeader className="flex flex-row gap-2 flex-wrap nowrap">
+                    {includeDate && <IconInline icon={CalendarIcon}>{toFormattedDate(event.date.toDate())}</IconInline>}
+                    <IconInline icon={ClockIcon}>{toFormattedTime(event.date.toDate())}</IconInline>
+                    <IconInline icon={MapPinIcon}>{event.location}</IconInline>
+                    {event.isCancelled && <Chip color="danger">Cancelled</Chip>}
+                </CardHeader>
+                <CardBody className="text-lg font-bold">
+                    {event.title}
+                </CardBody>
+                <CardFooter className="flex flex-wrap gap-1">
+                    {event.tags?.map((tag, index) => (
+                        <Chip key={index}>{tag}</Chip>
+                    ))}
+                </CardFooter>
+            </Card>
+        </Link>
+    )
+}
+
+async function fetchSignedUpActivityIds(userId: string): Promise<string[]> {
+    const q = query(
+        collectionGroup(db, 'activity'),
+        where('signupIds', 'array-contains', userId))
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => doc.ref.parent.parent!.id)
+}
 
 async function fetchUpcomingEvents(filterTags: string[]): Promise<[string, EventWithId[]][]> {
     const eventsRef = collection(db, 'events')
@@ -49,19 +81,24 @@ async function fetchUpcomingEvents(filterTags: string[]): Promise<[string, Event
         .sort(([dateA], [dateB]) => dateA > dateB ? 1 : -1)
 }
 
-function EventListContent() {
-    const searchParams = useSearchParams()
-    const tags = searchParams.get('tags')
-    const { refreshKey } = useRefresh()
-    const [events, setEvents] = useState<[string, EventWithId[]][] | null>(null)
+function MyRidesSection({ events, signedUpEventIds }: { events: EventWithId[], signedUpEventIds: string[] }) {
+    const myUpcomingEvents = events.filter(e => signedUpEventIds.includes(e.id))
+    if (myUpcomingEvents.length === 0) return null
+    return (
+        <div className="px-4 py-8 bg-primary-100">
+            <div className="container mx-auto">
+                <h1 className="m-0 text-left mb-4">My Next Ride</h1>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {myUpcomingEvents.map(event => (
+                        <EventCard key={event.id} event={event} includeDate />
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
+}
 
-    useEffect(() => {
-        const filterTags = tags ? tags.split(',').filter(Boolean) : []
-        fetchUpcomingEvents(filterTags).then(data => {
-            setEvents(data)
-        })
-    }, [tags, refreshKey])
-
+function EventListContent({ events }: { events: [string, EventWithId[]][] | null }) {
     return (
         <div>
             {events === null ? <>
@@ -70,58 +107,68 @@ function EventListContent() {
                     {Array.from({ length: 6 }).map((_, index) => (
                         <Skeleton key={index} className="h-40 rounded-lg" />
                     ))}
-                </div> 
-            </>
-                : events.length === 0 ? (
-                    <p className="text-center">No upcoming events found.</p>
-                ) : (
-                    events.map(([date, events]) => (
+                </div>
+            </> : events.length === 0 ? (
+                <p className="text-center">No upcoming events found.</p>
+            ) : (
+                        events.map(([date, evs]) => (
                     <div key={date}>
-                        <h2 className="text-xl font-bold"> {toFormattedDate(new Date(date))} </h2>
+                                <h2 className="text-xl font-bold">{toFormattedDate(new Date(date))}</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {events.map((event) => (
-                                <Link href={`/events/${event.id}`} key={event.id} className="no-underline text-inherit">
-                                    <Card key={event.id} isHoverable>
-                                        <CardHeader className="flex flex-row gap-2 flex-wrap nowrap">
-                                            <IconInline icon={ClockIcon}>{toFormattedTime(event.date.toDate())}</IconInline>
-                                            <IconInline icon={MapPinIcon}>{event.location}</IconInline>
-                                            {event.isCancelled && <Chip color="danger">Cancelled</Chip>}
-                                        </CardHeader>
-                                        <CardBody className="text-lg font-bold">
-                                            {event.title}
-                                        </CardBody>
-                                        <CardFooter className="flex flex-wrap gap-1">
-                                            {event.tags?.map((tag, index) => (
-                                                <Chip key={index}>{tag}</Chip>
-                                            ))}
-                                        </CardFooter>
-                                    </Card>
-                                </Link>
+                                    {evs.map((event) => (
+                                        <EventCard key={event.id} event={event} />
                             ))}
                         </div>
-                        </div>))
-                )
-            }
+                            </div>
+                        ))
+            )}
         </div>
     )
 }
 
-export default function EventList() {
-    return (
-        <div className="container mx-auto px-4 py-8">
+function EventListInner() {
+    const searchParams = useSearchParams()
+    const tags = searchParams.get('tags')
+    const { refreshKey } = useRefresh()
+    const { user, loading: authLoading } = useAuth()
+    const [events, setEvents] = useState<[string, EventWithId[]][] | null>(null)
+    const [signedUpEventIds, setSignedUpEventIds] = useState<string[]>([])
 
+    useEffect(() => {
+        if (authLoading) return
+        const filterTags = tags ? tags.split(',').filter(Boolean) : []
+        Promise.all([
+            fetchUpcomingEvents(filterTags),
+            user ? fetchSignedUpActivityIds(user.uid) : Promise.resolve([])
+        ]).then(([eventsData, activityIds]) => {
+            setEvents(eventsData)
+            setSignedUpEventIds(activityIds)
+        })
+    }, [tags, refreshKey, user, authLoading])
+
+    const allEvents = events?.flatMap(([, evs]) => evs) ?? []
+
+    return (
+        <>
+            <MyRidesSection events={allEvents} signedUpEventIds={signedUpEventIds} />
+            <div className="container mx-auto px-4 py-8">
             <div className="mb-8 flex gap-3 flex-wrap justify-center">
                 <h1 className="m-0 flex-grow text-left">Upcoming Rides</h1>
                 <WithAuth role="leader">
                     <Button as={Link} href="/create" color="secondary">Post a ride</Button>
                 </WithAuth>
-            </div>
-
+                </div>
             <TagFilter />
+                <EventListContent events={events} />
+            </div>
+        </>
+    )
+}
 
+export default function EventList() {
+    return (
             <Suspense>
-                <EventListContent />
-            </Suspense>
-        </div>
+            <EventListInner />
+        </Suspense>
     )
 }

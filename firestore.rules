@@ -32,8 +32,12 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && (resource.data.createdBy == request.auth.uid || hasRole("admin"))
       match /activity/private {
-        allow read: if hasRole("member");
+        allow read, list: if hasRole("member");
       }
+    }
+
+    match /{path=**}/activity/{docId} {
+      allow read: if hasRole("member");
     }
 
     match /feedback/{feedbackId} {
