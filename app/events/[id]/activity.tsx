@@ -120,7 +120,10 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
                             .sort(([, a], [, b]) => a.createdAt.toMillis() - b.createdAt.toMillis())
                             .map(([userId, signup]) =>
                                 <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
-                                    <Avatar src={signup.avatarUrl || undefined} />
+                                    <Avatar src={signup.avatarUrl || undefined}
+                                        tabIndex={1}
+                                        className="relative transition-transform duration-200 ease-out hover:z-[1] hover:scale-300 focus:z-[1] focus:scale-300 focus-visible:z-[1] focus-visible:scale-300"
+                                    />
                                     {signup.name}
                                     {signup.membership && signup.membership.toLowerCase().indexOf('trial') >= 0 &&
                                         <Chip size="sm" className="ml-1 bg-yellow-500 text-black uppercase">
