@@ -1,5 +1,5 @@
 'use client'
-import { collection, query, getDocs, Timestamp, where, orderBy, collectionGroup } from 'firebase/firestore'
+import { collection, query, getDocs, getDocsFromCache, Timestamp, where, orderBy, collectionGroup } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import React, { Suspense, useState, useEffect } from 'react'
 import { CalendarEvent } from '../types'
@@ -42,15 +42,15 @@ function EventCard({ event, includeDate = false }: { event: EventWithId, include
     )
 }
 
-async function fetchSignedUpActivityIds(userId: string): Promise<string[]> {
+async function fetchSignedUpActivityIds(userId: string, fromCache = false): Promise<string[]> {
     const q = query(
         collectionGroup(db, 'activity'),
         where('signupIds', 'array-contains', userId))
-    const snapshot = await getDocs(q)
+    const snapshot = fromCache ? await getDocsFromCache(q) : await getDocs(q)
     return snapshot.docs.map(doc => doc.ref.parent.parent!.id)
 }
 
-async function fetchUpcomingEvents(filterTags: string[]): Promise<[string, EventWithId[]][]> {
+async function fetchUpcomingEvents(filterTags: string[], fromCache = false): Promise<[string, EventWithId[]][]> {
     const eventsRef = collection(db, 'events')
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -58,7 +58,7 @@ async function fetchUpcomingEvents(filterTags: string[]): Promise<[string, Event
         where('date', '>', Timestamp.fromDate(today)),
         orderBy('date', 'asc'))
 
-    const querySnapshot = await getDocs(q)
+    const querySnapshot = fromCache ? await getDocsFromCache(q) : await getDocs(q)
     let events: EventWithId[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data() as CalendarEvent
@@ -126,7 +126,7 @@ function EventListContent({ events }: { events: [string, EventWithId[]][] | null
     )
 }
 
-function EventListInner() {
+export default function EventList() {
     const searchParams = useSearchParams()
     const tags = searchParams.get('tags')
     const { refreshKey } = useRefresh()
@@ -135,40 +135,41 @@ function EventListInner() {
     const [signedUpEventIds, setSignedUpEventIds] = useState<string[]>([])
 
     useEffect(() => {
-        if (authLoading) return
         const filterTags = tags ? tags.split(',').filter(Boolean) : []
-        Promise.all([
-            fetchUpcomingEvents(filterTags),
-            user ? fetchSignedUpActivityIds(user.uid) : Promise.resolve([])
-        ]).then(([eventsData, activityIds]) => {
+        performance.mark('events:start')
+        fetchUpcomingEvents(filterTags, true).then(eventsData => {
+            performance.mark('events:cache')
+            performance.measure('events:cache', 'events:start', 'events:cache')
             setEvents(eventsData)
-            setSignedUpEventIds(activityIds)
-        })
-    }, [tags, refreshKey, user, authLoading])
+        }).catch(() => { })
+        fetchUpcomingEvents(filterTags).then(eventsData => {
+            performance.mark('events:server')
+            setEvents(eventsData)
+        }).catch(() => { })
+    }, [tags, refreshKey])
+
+    useEffect(() => {
+        if (authLoading) return
+        if (!user) return
+        fetchSignedUpActivityIds(user.uid, true).then(setSignedUpEventIds).catch(() => { })
+        fetchSignedUpActivityIds(user.uid).then(setSignedUpEventIds).catch(() => { })
+    }, [user?.uid, authLoading])
 
     const allEvents = events?.flatMap(([, evs]) => evs) ?? []
 
     return (
-        <>
+        <Suspense>
             <MyRidesSection events={allEvents} signedUpEventIds={signedUpEventIds} />
             <div className="container mx-auto px-4 py-8">
-            <div className="mb-8 flex gap-3 flex-wrap justify-center">
-                <h1 className="m-0 flex-grow text-left">Upcoming Rides</h1>
-                <WithAuth role="leader">
-                    <Button as={Link} href="/create" color="secondary">Post a ride</Button>
-                </WithAuth>
+                <div className="mb-8 flex gap-3 flex-wrap justify-center">
+                    <h1 className="m-0 flex-grow text-left">Upcoming Rides</h1>
+                    <WithAuth role="leader">
+                        <Button as={Link} href="/create" color="secondary">Post a ride</Button>
+                    </WithAuth>
                 </div>
-            <TagFilter />
+                <TagFilter />
                 <EventListContent events={events} />
             </div>
-        </>
-    )
-}
-
-export default function EventList() {
-    return (
-            <Suspense>
-            <EventListInner />
         </Suspense>
     )
 }

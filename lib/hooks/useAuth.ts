@@ -13,11 +13,17 @@ export function useAuth() {
         userRef.current = firebaseUser
 
         if (firebaseUser) {
-            const idToken = await firebaseUser.getIdToken()
-            await createSession(idToken)
+            const tokenResult = await firebaseUser.getIdTokenResult()
+            const issuedAt = new Date(tokenResult.issuedAtTime).getTime()
+            const lastIssuedAt = Number(localStorage.getItem('sessionIssuedAt') ?? 0)
+            if (issuedAt > lastIssuedAt) {
+                await createSession(tokenResult.token)
+                localStorage.setItem('sessionIssuedAt', String(issuedAt))
+            }
             setUser(firebaseUser)
         } else {
             await deleteSession()
+            localStorage.removeItem('sessionIssuedAt')
             setUser(null)
         }
 
@@ -34,17 +40,8 @@ export function useAuth() {
             updateUser(firebaseUser)
         })
 
-        // Refresh session cookie every 55 minutes to keep it fresh for active users
-        const refreshInterval = setInterval(async () => {
-            if (userRef.current) {
-                const idToken = await userRef.current.getIdToken(true)
-                await createSession(idToken)
-            }
-        }, 55 * 60 * 1000)
-
         return () => {
             clearTimeout(timeout)
-            clearInterval(refreshInterval)
             unsubscribe()
         }
     }, [])
