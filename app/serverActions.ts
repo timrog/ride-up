@@ -182,7 +182,8 @@ export async function addSignup(eventId: string, signupKey: string) {
                 phone,
                 avatarUrl: user.photoURL || null,
                 userId: user.uid,
-                membership: user.customClaims?.membership || null
+                membership: user.customClaims?.membership || null,
+                isLeader: Array.isArray(user.customClaims?.roles) && user.customClaims.roles.includes('leader')
             }
 
             try {

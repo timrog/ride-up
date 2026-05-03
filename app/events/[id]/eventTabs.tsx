@@ -15,9 +15,10 @@ interface EventTabsProps {
     details: ReactNode
     routeLink?: string
     isActive: boolean
+    eventLeaderId: string
 }
 
-export default function EventTabs({ id, details, routeLink, isActive }: EventTabsProps) {
+export default function EventTabs({ id, details, routeLink, isActive, eventLeaderId }: EventTabsProps) {
     const [activeTab, setActiveTab] = useState('details')
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
 
@@ -40,7 +41,7 @@ export default function EventTabs({ id, details, routeLink, isActive }: EventTab
     const Signups = () => {
         return <>
             <WithAuth role="member">
-                <Activity id={id} isActive={isActive} />
+                <Activity id={id} isActive={isActive} eventLeaderId={eventLeaderId} />
             </WithAuth>
 
             <WithAuth>

@@ -7,7 +7,7 @@ import React, { KeyboardEvent, useEffect, useState } from 'react'
 import { EventActivity } from 'app/types'
 import SignupButton from "./signUpButton"
 import { Avatar, Button, Card, CardBody, CardHeader, Chip, PressEvent, Textarea } from "@heroui/react"
-import { PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
+import { PaperAirplaneIcon } from '@heroicons/react/24/outline'
 import { addComment } from "app/serverActions"
 import WithAuth from "app/withAuthClient"
 import Link from "next/link"
@@ -17,7 +17,7 @@ interface ExtraUser {
     phone: string | null
 }
 
-export default function Activity({ id, isActive }: { id: string, isActive: boolean }) {
+export default function Activity({ id, isActive, eventLeaderId }: { id: string, isActive: boolean, eventLeaderId: string }) {
     const newActivity = { signups: {}, comments: [], signupIds: [], notificationSubscribers: {} } as EventActivity
     const [activity, setActivity] = useState(newActivity)
     const [comment, setComment] = useState("")
@@ -70,6 +70,11 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
 
     const signupCount = Object.keys(activity.signups || {}).length
     const userId = currentUser?.uid
+    const isViewingAsEventLeader = !!currentUser && currentUser.uid === eventLeaderId
+    const sortedSignups = Object.entries(activity.signups || {})
+        .sort(([, a], [, b]) => a.createdAt.toMillis() - b.createdAt.toMillis())
+    const hasOtherLeaders = sortedSignups
+        .some(([, signup]) => signup.isLeader && signup.userId !== eventLeaderId)
 
     // Build list of users (primary + extras) with their signup keys
     const allUsers = [
@@ -116,15 +121,14 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
             <WithAuth role="member">
                 <ul className="text-lg">
                     {
-                        Object.entries(activity.signups || {})
-                            .sort(([, a], [, b]) => a.createdAt.toMillis() - b.createdAt.toMillis())
+                            sortedSignups
                             .map(([userId, signup]) =>
                                 <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
                                     <Avatar src={signup.avatarUrl || undefined}
                                         tabIndex={1}
                                         className="relative transition-transform duration-200 ease-out hover:z-[1] hover:scale-300 focus:z-[1] focus:scale-300 focus-visible:z-[1] focus-visible:scale-300"
                                     />
-                                    {signup.name}
+                                    {signup.name}{signup.isLeader && signup.userId !== eventLeaderId && isViewingAsEventLeader ? '▲' : ''}
                                     {signup.membership && signup.membership.toLowerCase().indexOf('trial') >= 0 &&
                                         <Chip size="sm" className="ml-1 bg-yellow-500 text-black uppercase">
                                             Trial
@@ -136,7 +140,12 @@ export default function Activity({ id, isActive }: { id: string, isActive: boole
                                         </Link>}
                                 </li>
                             )}
-                </ul>
+                    </ul>
+                    {isViewingAsEventLeader && hasOtherLeaders && (
+                        <p className="mt-6 text-sm text-gray-500">
+                            ▲ Need another leader? Try one of these.
+                        </p>
+                    )}
             </WithAuth>
 
             {isActive && currentUser && <div className="my-3 flex flex-col gap-2">

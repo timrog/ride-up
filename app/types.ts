@@ -36,6 +36,7 @@ export interface Signup {
     avatarUrl: string | null
     phone: string | null,
     membership: string | null
+    isLeader: boolean
 }
 
 export interface Comment {

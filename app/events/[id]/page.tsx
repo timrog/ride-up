@@ -108,7 +108,8 @@ const EventPage = () => {
             <EventTabs id={id}
                 details={<Details />}
                 routeLink={event.routeLink}
-            isActive={isActive} />
+            isActive={isActive}
+            eventLeaderId={event.createdBy} />
     )
 }
 
