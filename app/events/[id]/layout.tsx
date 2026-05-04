@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import { getAdminDb } from "@/lib/firebase/admin"
-import { EventDataProvider } from "./EventDataContext"
 import { EventPageData } from "./eventPageData"
 
 type Props = {
@@ -63,13 +62,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function EventLayout({ children, params }: Props) {
-  const { id } = await params
-  const event = await loadEvent(id)
-
-  return (
-    <EventDataProvider initialEvent={event}>
-      {children}
-    </EventDataProvider>
-  )
+export default async function EventLayout({ children }: Props) {
+  return children
 }

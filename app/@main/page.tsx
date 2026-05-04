@@ -136,14 +136,10 @@ export default function EventList() {
 
     useEffect(() => {
         const filterTags = tags ? tags.split(',').filter(Boolean) : []
-        performance.mark('events:start')
         fetchUpcomingEvents(filterTags, true).then(eventsData => {
-            performance.mark('events:cache')
-            performance.measure('events:cache', 'events:start', 'events:cache')
             setEvents(eventsData)
         }).catch(() => { })
         fetchUpcomingEvents(filterTags).then(eventsData => {
-            performance.mark('events:server')
             setEvents(eventsData)
         }).catch(() => { })
     }, [tags, refreshKey])

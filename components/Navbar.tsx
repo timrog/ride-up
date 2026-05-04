@@ -4,7 +4,7 @@ import { PlusIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/outline"
 import { Button, Drawer } from "@heroui/react"
 import { Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger } from "@heroui/dropdown"
 import WithAuth from "app/withAuthClient"
-import { Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import FirebaseAuth from "app/firebaseAuth"
 import { useRoles } from "app/clientAuth"
 import Link from "next/link"
@@ -18,7 +18,13 @@ const Triburger = (<svg width="28" height="28" viewBox="0 0 7.4083 7.4083">
 </svg>)
 
 export default function () {
-  const { currentUser: user, roles } = useRoles()
+  const { currentUser: user, roles, loading } = useRoles()
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
+
+  const canRenderAuthUi = hydrated && !loading
   const itemStyle = { title: "text-large font-bold text-gray-800" }
 
   return (
@@ -32,27 +38,27 @@ export default function () {
       <NavbarContent justify="center">
       </NavbarContent>
       <NavbarContent justify="end">
-        <WithAuth role="admin">
+        {canRenderAuthUi && <WithAuth role="admin">
           <Button as={Link} href="/create" isIconOnly title="Post a ride" color="secondary" className="rounded-full">
             <PlusIcon height={24} />
           </Button>
-        </WithAuth>
+        </WithAuth>}
         <Button as={Link} href="/about" isIconOnly title="Help and feedback" color="default" className="rounded-full">
           <QuestionMarkCircleIcon height={24} />
         </Button>
-        <Suspense fallback={<div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />}>
+        {canRenderAuthUi && <Suspense fallback={<div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />}>
           <FirebaseAuth />
-        </Suspense>
+        </Suspense>}
         <Dropdown placement="bottom-end">
           <DropdownTrigger>{Triburger}</DropdownTrigger>
           <DropdownMenu aria-label="Profile Actions" variant="flat">
             <DropdownItem key="list" href="/" classNames={itemStyle} title="Upcoming rides"></DropdownItem>
-            {user && <DropdownItem key="user" href={`/user`} classNames={itemStyle}>Your profile</DropdownItem> || null}
-            {roles?.includes('leader') &&
+            {canRenderAuthUi && user && <DropdownItem key="user" href={`/user`} classNames={itemStyle}>Your profile</DropdownItem> || null}
+            {canRenderAuthUi && roles?.includes('leader') &&
               <DropdownItem key="postRide" color="primary" href="/create" classNames={itemStyle}>Post a ride</DropdownItem> || null}
             <DropdownItem key="help" href="/about" classNames={itemStyle}>Help</DropdownItem>
             <DropdownSection>
-              {roles?.includes('admin') ?
+              {canRenderAuthUi && roles?.includes('admin') ?
                 <DropdownItem key="admin" color="primary" href="/admin" classNames={itemStyle}>Admin diagnostics</DropdownItem> : null}
               <DropdownItem key="notifications" color="primary" href="/notifications" classNames={itemStyle}>Notifications (beta)</DropdownItem>
             </DropdownSection>
