@@ -16,6 +16,7 @@ import { useSearchParams } from 'next/navigation'
 import { useRefresh } from '../providers'
 import { Skeleton } from "@heroui/react"
 import { useAuth } from '@/lib/hooks/useAuth'
+import PromoteNotifications from '@/components/PromoteNotifications'
 
 type EventWithId = CalendarEvent & { id: string }
 
@@ -157,6 +158,7 @@ function EventListInner() {
         <>
             <MyRidesSection events={allEvents} signedUpEventIds={signedUpEventIds} />
             <div className="container mx-auto px-4 py-8">
+                <PromoteNotifications />
                 <div className="mb-8 flex gap-3 flex-wrap justify-center">
                     <h1 className="m-0 flex-grow text-left">Upcoming Rides</h1>
                     <WithAuth role="leader">

@@ -14,6 +14,8 @@ import { sendTestNotification } from './serverActions'
 import { addToast } from '@heroui/react'
 import { ArrowUpOnSquareIcon, PlusCircleIcon } from "@heroicons/react/24/outline"
 import WithAuth from "app/withAuthClient"
+import Link from "next/link"
+import { dismissPromoteNotifications } from '@/components/PromoteNotifications'
 
 interface BeforeInstallPromptEvent extends Event {
     prompt: () => Promise<void>
@@ -178,7 +180,8 @@ export default function NotificationsPage() {
 
             if (token) {
                 const docRef = doc(db, 'notifications', user.uid)
-                await setDoc(docRef, { tokens: arrayRemove(token) }, { merge: true })
+                await setDoc(docRef,
+                    { tokens: arrayRemove(token) }, { merge: true })
                 setPreferences(prev => ({
                     ...prev,
                     tokens: prev.tokens.filter(savedToken => savedToken !== token)
@@ -296,6 +299,7 @@ export default function NotificationsPage() {
                     : [...prev.tokens, token]
             }))
             setIsNotificationsEnabled(true)
+            dismissPromoteNotifications()
 
             addToast({
                 title: 'Preferences Saved',
@@ -307,7 +311,7 @@ export default function NotificationsPage() {
             console.error('Error saving preferences:', error)
             addToast({
                 title: 'Save Failed',
-                description: 'Failed to save preferences. Please enable notifications first.',
+                description: 'Failed to save preferences',
                 color: 'danger'
             })
         } finally {
@@ -358,9 +362,9 @@ export default function NotificationsPage() {
                 return (
                     <div className="p-4 bg-warning-50 rounded-lg mb-6">
                         <p className="text-warning-700 font-semibold mb-2">iPhone instructions:</p>
-                        <p>To get notifications on this iPhone/iPad, you need follow a few simple steps to install Signups on to your home screen.</p>
+                        <p>To get notifications on this iPhone/iPad, you need follow a few simple steps to install this site as an App on your home screen.</p>
                         <ol className="list-decimal list-inside space-y-1 text-warning-700">
-                            <li>In Safari, tap the Share button <ArrowUpOnSquareIcon className="inline-block w-4 h-4 ml-1" /></li>
+                            <li>Below, tap the Share button <ArrowUpOnSquareIcon className="inline-block w-4 h-4 ml-1" /></li>
                             <li>Scroll down and tap "<PlusCircleIcon className="inline-block w-4 h-4 ml-1" /> Add to Home Screen"</li>
                             <li>Go to the home screen and open the installed app and sign in</li>
                             <li>In the app, go to Notifications in the menu to setup your notifications</li>
@@ -372,7 +376,7 @@ export default function NotificationsPage() {
                 return (
                     <div className="p-4 bg-warning-50 rounded-lg mb-6">
                         <p className="text-warning-700 font-semibold mb-2">Android instructions:</p>
-                        <p>To get notifications on this device, you need follow a few simple steps to install Signups on to your home screen.</p>
+                        <p>To get notifications on this device, you need follow a few simple steps to install this site as an App on your home screen.</p>
                         <ol className="list-decimal list-inside space-y-1 text-warning-700">
                             <li>Tap Install App below, or use browser menu (⋮)
                                 <div>
@@ -416,7 +420,7 @@ export default function NotificationsPage() {
 
     return (
         <div className="container mx-auto p-6 max-w-2xl">
-            <h1 className="text-3xl font-bold mb-6">Notification Preferences</h1>
+            <h1 className="text-3xl font-bold mb-6">Notifications</h1>
 
             <Instructions context={context} />
 
@@ -478,6 +482,7 @@ export default function NotificationsPage() {
                     </Button>
                 </div>
 
+                    <p>Notifications are experimental. In case of problems, please submit feedback <Link href="/about">here</Link>.</p>
             </div>
             )}
         </div>

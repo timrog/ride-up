@@ -16,6 +16,7 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Skeleton } from "@heroui/react"
 import { useRefresh } from "app/providers"
+import PromoteNotifications from '@/components/PromoteNotifications'
 
 const EventPage = () => {
     const { id } = useParams<{ id: string }>()
@@ -77,6 +78,7 @@ const EventPage = () => {
                 </WithAuth>
             </div>
             <div><FormatHtml content={event.description} /></div>
+            <PromoteNotifications />
         </div>
     </>
 
