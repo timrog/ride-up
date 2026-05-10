@@ -20,6 +20,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "sourceMap": true,
+    "ignoreDeprecations": "6.0",
     "plugins": [
       {
         "name": "next"

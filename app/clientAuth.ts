@@ -1,11 +1,13 @@
 'use client'
-import { getAuth, IdTokenResult } from "firebase/auth"
+import { IdTokenResult } from "firebase/auth"
 import { MemberRole } from "./types"
 import { useEffect, useState } from "react"
 import { createSession, deleteSession } from "./sessionActions"
+import { initializeApp } from "firebase/app"
+import { auth } from "@/lib/firebase/clientApp"
 
 type AuthState = {
-    currentUser: ReturnType<typeof getAuth>["currentUser"]
+    currentUser: typeof auth.currentUser
     idToken: IdTokenResult | null
     loading: boolean
 }
@@ -14,7 +16,7 @@ const listeners = new Set<() => void>()
 let isInitialized = false
 let hasLoadedLocalStorage = false
 let authState: AuthState = {
-    currentUser: getAuth().currentUser,
+    currentUser: auth.currentUser,
     idToken: null,
     loading: true,
 }
@@ -56,7 +58,6 @@ function ensureInitialized() {
     if (isInitialized) return
     isInitialized = true
 
-    const auth = getAuth()
     const timeout = setTimeout(() => {
         authState = { ...authState, loading: false }
         emit()

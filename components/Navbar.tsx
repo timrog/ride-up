@@ -60,7 +60,9 @@ export default function () {
             <DropdownSection>
               {canRenderAuthUi && roles?.includes('admin') ?
                 <DropdownItem key="admin" color="primary" href="/admin" classNames={itemStyle}>Admin diagnostics</DropdownItem> : null}
-              <DropdownItem key="notifications" color="primary" href="/notifications" classNames={itemStyle}>Notifications (beta)</DropdownItem>
+              {canRenderAuthUi && roles?.includes('member') &&
+                <DropdownItem key="notifications" color="primary" href="/notifications" classNames={itemStyle}>Notifications (beta)</DropdownItem> || null
+              }
             </DropdownSection>
           </DropdownMenu>
         </Dropdown>

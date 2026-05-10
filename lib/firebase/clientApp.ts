@@ -1,18 +1,13 @@
 "use client"
 
-import { initializeApp } from "firebase/app"
 import { getAuth, connectAuthEmulator } from "firebase/auth"
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
+import { connectFirestoreEmulator } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
 import { getMessaging, isSupported } from "firebase/messaging"
-import { clientCredentials } from "./initFirebase"
+import { firebaseApp, db } from "./initFirebase"
 
-// Use automatic initialization
-// https://firebase.google.com/docs/app-hosting/firebase-sdks#initialize-with-no-arguments
-export const firebaseApp = initializeApp(clientCredentials)
-
+export { db, firebaseApp }
 export const auth = getAuth(firebaseApp)
-export const db = getFirestore(firebaseApp)
 export const storage = getStorage(firebaseApp)
 
 // Initialize messaging (only in browser context and when supported)

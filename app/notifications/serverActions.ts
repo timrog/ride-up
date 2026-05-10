@@ -27,26 +27,27 @@ export async function sendTestNotification() {
             return { success: false, error: 'No notification tokens found. Please save your preferences first.' }
         }
 
+        const eventsSnapshot = await db.collection('events').limit(1).offset(Math.floor(Math.random() * (await db.collection('events').count().get()).data().count)).get()
+        const id = eventsSnapshot.docs[0].id
+
         const message = {
             notification: {
-                title: 'Your notifications work',
-                body: 'Stop messing with them and ride your bike.'
+                title: `${process.env.NODE_ENV === 'development' ? 'Development:' : ''} Your notifications work`,
+                body: 'Now go out and ride your bike.'
             },
             webpush: { 
                 fcmOptions: {  
-                    link: '/notifications'
+                    link: `/events/${id}`
                 }
             },
             data: {
-                url: `/notifications`,
+                url: `/events/${id}`,
                 tag: 'test-notification'
             },
             tokens: prefs.tokens
         }
 
         const response = await admin.messaging().sendEachForMulticast(message)
-        
-        console.log(`Sent test notifications`, response)
 
         if (response.successCount === 0) {
             return { 

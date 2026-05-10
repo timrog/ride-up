@@ -5,7 +5,7 @@ import { Button, Switch } from '@heroui/react'
 import { useRouter } from 'next/navigation'
 import SelectableTags from '@/components/SelectableTags'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore'
+import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { db } from '@/lib/firebase/clientApp'
 import { getMessagingInstance } from '@/lib/firebase/clientApp'
 import { getToken } from 'firebase/messaging'
@@ -33,17 +33,19 @@ export default function NotificationsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [isSendingTest, setIsSendingTest] = useState(false)
-    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+    const [isDisabling, setIsDisabling] = useState(false)
+    const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(false)
     const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
 
     useEffect(() => {
-        if (user) {
-            loadPreferences()
+        if (!user) {
+            setIsLoading(false)
+            setIsNotificationsEnabled(false)
+            return
         }
-        
-        if ('Notification' in window) {
-            setNotificationPermission(Notification.permission)
-        }
+
+        setIsLoading(true)
+        void loadPreferences()
     }, [user])
 
     useEffect(() => {
@@ -68,6 +70,13 @@ export default function NotificationsPage() {
 
     async function loadPreferences() {
         if (!user) return
+        let loadedPreferences: NotificationPreferences = {
+            tags: [],
+            eventUpdates: true,
+            activityForLeader: true,
+            activityForSignups: true,
+            tokens: []
+        }
         
         try {
             const docRef = doc(db, 'notifications', user.uid)
@@ -75,14 +84,17 @@ export default function NotificationsPage() {
             
             if (docSnap.exists()) {
                 const data = docSnap.data()
-                setPreferences({
+                loadedPreferences = {
                     tags: data.tags || [],
                     eventUpdates: data.eventUpdates ?? true,
                     activityForLeader: data.activityForLeader ?? true,
                     activityForSignups: data.activityForSignups ?? true,
                     tokens: data.tokens || []
-                })
+                }
             }
+
+            setPreferences(loadedPreferences)
+            await refreshNotificationEnabledStatus(loadedPreferences.tokens)
         } catch (error) {
             console.error('Error loading preferences:', error)
         } finally {
@@ -90,22 +102,110 @@ export default function NotificationsPage() {
         }
     }
 
-    async function requestNotificationPermission() {
+    async function requestNotificationPermission(): Promise<NotificationPermission> {
         if (!('Notification' in window)) {
             addToast({
                 title: 'Notifications Unsupported',
                 description: 'This browser does not support notifications.',
                 color: 'danger'
             })
-            return
+            return 'denied'
         }
 
         try {
             const permission = await Notification.requestPermission()
-            setNotificationPermission(permission)
+            return permission
         } catch (error) {
             console.error('Error requesting permission:', error)
             throw error
+        }
+    }
+
+    async function getNotificationServiceWorkerRegistration() {
+        return navigator.serviceWorker.getRegistration('/')
+    }
+
+    async function getCurrentDeviceToken(registration: ServiceWorkerRegistration) {
+        const messaging = await getMessagingInstance()
+        if (!messaging) {
+            return null
+        }
+
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        if (!vapidKey) {
+            throw new Error('VAPID key not configured')
+        }
+
+        return getToken(messaging, {
+            vapidKey,
+            serviceWorkerRegistration: registration
+        })
+    }
+
+    async function refreshNotificationEnabledStatus(savedTokens: string[]) {
+        if (!('Notification' in window)) {
+            setIsNotificationsEnabled(false)
+            return
+        }
+
+        const permission = Notification.permission
+        if (permission !== 'granted') {
+            setIsNotificationsEnabled(false)
+            return
+        }
+
+        const registration = await getNotificationServiceWorkerRegistration()
+        if (!registration) {
+            setIsNotificationsEnabled(false)
+            return
+        }
+
+        const token = await getCurrentDeviceToken(registration)
+        if (!token) {
+            setIsNotificationsEnabled(false)
+            return
+        }
+
+        setIsNotificationsEnabled(savedTokens.includes(token))
+    }
+
+    async function disableNotifications() {
+        if (!user) return
+        setIsDisabling(true)
+        try {
+            const registration = await getNotificationServiceWorkerRegistration()
+            const token = registration ? await getCurrentDeviceToken(registration) : null
+
+            if (token) {
+                const docRef = doc(db, 'notifications', user.uid)
+                await setDoc(docRef, { tokens: arrayRemove(token) }, { merge: true })
+                setPreferences(prev => ({
+                    ...prev,
+                    tokens: prev.tokens.filter(savedToken => savedToken !== token)
+                }))
+            }
+
+            if (registration) {
+                await registration.unregister()
+            }
+
+            setIsNotificationsEnabled(false)
+
+            addToast({
+                title: 'Notifications Disabled',
+                description: 'Notifications have been disabled on this device.',
+                color: 'success'
+            })
+
+        } catch (error) {
+            console.error('Error disabling notifications:', error)
+            addToast({
+                title: 'Failed to Disable',
+                description: 'Could not disable notifications. Please try again.',
+                color: 'danger'
+            })
+        } finally {
+            setIsDisabling(false)
         }
     }
 
@@ -155,31 +255,25 @@ export default function NotificationsPage() {
     async function savePreferences() {
         if (!user) return
         
-        await requestNotificationPermission()
+        const permission = await requestNotificationPermission()
+        if (permission !== 'granted') {
+            addToast({
+                title: 'Permission Required',
+                description: 'Please allow notifications to enable them on this device.',
+                color: 'warning'
+            })
+            return
+        }
 
         setIsSaving(true)
         try {
-            const messaging = await getMessagingInstance()
-            if (!messaging) {
-                throw new Error('Messaging not supported')
-            }
-
             const registration = await navigator.serviceWorker.register('/sw.js', {
                 scope: '/',
                 updateViaCache: 'none'
             })
 
             await navigator.serviceWorker.ready
-
-            const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-            if (!vapidKey) {
-                throw new Error('VAPID key not configured')
-            }
-
-            const token = await getToken(messaging, {
-                vapidKey,
-                serviceWorkerRegistration: registration
-            })
+            const token = await getCurrentDeviceToken(registration)
 
             if (!token) {
                 throw new Error('Failed to get FCM token')
@@ -194,6 +288,14 @@ export default function NotificationsPage() {
                 tokens: arrayUnion(token),
                 updatedAt: new Date()
             }, { merge: true })
+
+            setPreferences(prev => ({
+                ...prev,
+                tokens: prev.tokens.includes(token)
+                    ? prev.tokens
+                    : [...prev.tokens, token]
+            }))
+            setIsNotificationsEnabled(true)
 
             addToast({
                 title: 'Preferences Saved',
@@ -233,10 +335,20 @@ export default function NotificationsPage() {
     }
 
     function Instructions({ context }: { context: string }) {
-        if (notificationPermission === 'granted') {
+        if (isNotificationsEnabled) {
             return (
                 <div className="p-4 bg-success-50 rounded-lg mb-6 text-success-700">
-                    ✓ Notifications are enabled
+                    <p>✓ Notifications are enabled</p>
+                    <Button
+                        color="danger"
+                        variant="flat"
+                        size="sm"
+                        className="mt-2"
+                        onPress={disableNotifications}
+                        isLoading={isDisabling}
+                    >
+                        Disable on this device
+                    </Button>
                 </div>
             )
         }
@@ -300,6 +412,7 @@ export default function NotificationsPage() {
     }
 
     var context = getBrowserContext()
+    const isPermissionGranted = 'Notification' in window && Notification.permission === 'granted'
 
     return (
         <div className="container mx-auto p-6 max-w-2xl">
@@ -351,7 +464,7 @@ export default function NotificationsPage() {
                         onPress={savePreferences}
                             isLoading={isSaving}
                     >
-                        Save Preferences
+                            Enable Notifications
                     </Button>
 
                     <Button
@@ -359,17 +472,12 @@ export default function NotificationsPage() {
                         size="lg"
                         onPress={handleSendTest}
                         isLoading={isSendingTest}
-                        isDisabled={preferences.tokens.length === 0}
+                            isDisabled={!isNotificationsEnabled}
                     >
                         Send Test Notification
                     </Button>
                 </div>
 
-                {preferences.tokens.length === 0 && notificationPermission === 'granted' && (
-                    <p className="text-warning-600 text-sm">
-                        Save your preferences first to enable test notifications
-                    </p>
-                )}
             </div>
             )}
         </div>

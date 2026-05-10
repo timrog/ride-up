@@ -136,19 +136,19 @@ export default function EventList() {
 
     useEffect(() => {
         const filterTags = tags ? tags.split(',').filter(Boolean) : []
-        fetchUpcomingEvents(filterTags, true).then(eventsData => {
-            setEvents(eventsData)
-        }).catch(() => { })
-        fetchUpcomingEvents(filterTags).then(eventsData => {
-            setEvents(eventsData)
-        }).catch(() => { })
+        fetchUpcomingEvents(filterTags, true).then(e => {
+            if (!events) setEvents(e)
+        })
+        fetchUpcomingEvents(filterTags).then(setEvents)
     }, [tags, refreshKey])
 
     useEffect(() => {
         if (authLoading) return
         if (!user) return
-        fetchSignedUpActivityIds(user.uid, true).then(setSignedUpEventIds).catch(() => { })
-        fetchSignedUpActivityIds(user.uid).then(setSignedUpEventIds).catch(() => { })
+        fetchSignedUpActivityIds(user.uid, true).then(e => {
+            if (!signedUpEventIds.length) setSignedUpEventIds(e)
+        })
+        fetchSignedUpActivityIds(user.uid).then(setSignedUpEventIds)
     }, [user?.uid, authLoading])
 
     const allEvents = events?.flatMap(([, evs]) => evs) ?? []
