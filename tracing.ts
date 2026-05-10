@@ -26,6 +26,9 @@ const sdk = new NodeSDK({
         getNodeAutoInstrumentations({
             '@opentelemetry/instrumentation-fs': {
                 enabled: false,
+            },
+            '@opentelemetry/instrumentation-winston': {
+                enabled: false,
             }
         }),
     ],

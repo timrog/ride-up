@@ -14,7 +14,8 @@ const sansFont = Nunito({
 const headingFont = Big_Shoulders({
   variable: "--font-heading",
   weight: "800",
-  subsets: ["latin"]
+  subsets: ["latin"],
+  adjustFontFallback: false,
 })
 
 export const metadata: Metadata = {

@@ -126,7 +126,7 @@ function EventListContent({ events }: { events: [string, EventWithId[]][] | null
     )
 }
 
-export default function EventList() {
+function EventListInner() {
     const searchParams = useSearchParams()
     const tags = searchParams.get('tags')
     const { refreshKey } = useRefresh()
@@ -154,7 +154,7 @@ export default function EventList() {
     const allEvents = events?.flatMap(([, evs]) => evs) ?? []
 
     return (
-        <Suspense>
+        <>
             <MyRidesSection events={allEvents} signedUpEventIds={signedUpEventIds} />
             <div className="container mx-auto px-4 py-8">
                 <div className="mb-8 flex gap-3 flex-wrap justify-center">
@@ -166,6 +166,23 @@ export default function EventList() {
                 <TagFilter />
                 <EventListContent events={events} />
             </div>
+        </>
+    )
+}
+
+export default function EventList() {
+    return (
+        <Suspense fallback={
+            <div className="container mx-auto px-4 py-8">
+                <Skeleton className="mt-4 w-40 h-8 rounded-lg" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-8">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                        <Skeleton key={index} className="h-40 rounded-lg" />
+                    ))}
+                </div>
+            </div>
+        }>
+            <EventListInner />
         </Suspense>
     )
 }
