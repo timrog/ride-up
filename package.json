@@ -12,7 +12,7 @@
 		"otel": "podman run --rm --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/jaeger:latest"
 	},
 	"dependencies": {
-		"@google-cloud/pubsub": "^5.2.0",
+		"@google-cloud/pubsub": "^5.3.0",
 		"@heroicons/react": "^2.2.0",
 		"@heroui/react": "^2.8.6",
 		"@heroui/theme": "^2.4.24",
