@@ -14,6 +14,7 @@ export async function refreshMembership(): Promise<RefreshMembershipResult> {
 
         const pubsub = new PubSub({
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            ...{ fallback: 'rest' as const }
         })
         const topic = pubsub.topic('refresh-members')
 
