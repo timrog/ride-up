@@ -33,6 +33,7 @@ export interface FunctionSecrets {
   };
   google: {
     calendarId: string;
+    sheetId: string;
   };
 }
 

@@ -1,6 +1,7 @@
 import * as logger from "firebase-functions/logger"
 import { onMessagePublished } from "firebase-functions/v2/pubsub"
 import { decodeMembersCsv, MemberPhotoMessage } from "./shared"
+import { getAgeRangeFromDob, normalizeGender } from "./memberDemographics"
 import admin from "firebase-admin"
 import { PubSub } from '@google-cloud/pubsub'
 
@@ -12,10 +13,16 @@ function formatE164PhoneNumber(phoneNumber: string): string {
 
 type MemberRecord = ReturnType<typeof decodeMembersCsv>[number]
 
+type DemographicsClaims = {
+    gender: string
+    ageRange: string
+}
+
 type UserClaims = {
     roles: string[]
     membership: string
     phone: string | null
+    demographics?: DemographicsClaims
     extraUsers?: Array<{ displayName: string; phone: string | null }>
 }
 
@@ -64,11 +71,29 @@ function getExtraUsers(duplicateRecords: MemberRecord[], incoming: MemberRecord 
     return extraUsers
 }
 
-function getClaims(roles: string[], membership: string, phone: string | null, extraUsers: Array<{ displayName: string; phone: string | null }>): UserClaims {
+function getDemographics(record: MemberRecord | undefined): DemographicsClaims | undefined {
+    if (!record) return undefined
+    return {
+        gender: normalizeGender(record.Gender),
+        ageRange: getAgeRangeFromDob(record["Date of birth"])
+    }
+}
+
+function getClaims(
+    roles: string[],
+    membership: string,
+    phone: string | null,
+    demographics: DemographicsClaims | undefined,
+    extraUsers: Array<{ displayName: string; phone: string | null }>
+): UserClaims {
     const claims: UserClaims = {
         roles,
         membership,
         phone
+    }
+
+    if (demographics) {
+        claims.demographics = demographics
     }
 
     if (extraUsers.length > 0) {
@@ -216,8 +241,10 @@ export const SendMembersToAuth = onMessagePublished({
             if (existingClaims?.membership !== claims.membership
                 || existingClaims?.roles?.join() !== claims.roles.join()
                 || existingClaims?.phone !== claims.phone
+                || JSON.stringify(existingClaims?.demographics) !== JSON.stringify(claims.demographics)
                 || JSON.stringify(existingClaims?.extraUsers) !== JSON.stringify(claims.extraUsers)) {
                 await auth.setCustomUserClaims(existing.uid, claims)
+                auth.createUser({})
                 updated++
             }
         } catch (error) {
@@ -238,7 +265,8 @@ export const SendMembersToAuth = onMessagePublished({
         const roles = getRoles(incoming)
         const duplicateRecords = emailGroups.get(key) || []
         const extraUsers = getExtraUsers(duplicateRecords, incoming)
-        const claims = getClaims(roles, incoming?.Membership || 'none', phoneNumber, extraUsers)
+        const demographics = getDemographics(incoming)
+        const claims = getClaims(roles, incoming?.Membership || 'none', phoneNumber, demographics, extraUsers)
         await updateClaims(user, claims, key)
     }))
 

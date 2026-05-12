@@ -27,3 +27,29 @@ This is not meant to be a tutorial on how to use next.js or Firebase, but simply
 - [Firebase](https://firebase.google.com/docs/build)
 
 This is compatable with next.js v10+ and Firebase JavaScript v8+, which are currently the newest versions. May work with older versions.
+
+## Google Sheets Exports
+
+Cloud Functions now include exports to a Google Sheets workbook.
+
+- Membership export:
+  - Trigger: Pub/Sub topic `all-members`
+  - Target tab: `Membership`
+  - Behavior: append-only, once per month (month guard based on existing rows in sheet)
+- Activity export:
+  - Trigger: daily scheduler (`15 5 * * *`, Europe/London) via Pub/Sub topic `sheet-activity-exports`
+  - Target tabs: `Rides` and `Signups`
+  - Behavior: append-only, incremental by latest timestamp already present in each tab
+
+### Required APP_SECRETS shape
+
+`APP_SECRETS` must include:
+
+```json
+{
+  "google": {
+    "calendarId": "<existing-calendar-id>",
+    "sheetId": "<google-sheet-id-placeholder>"
+  }
+}
+```
