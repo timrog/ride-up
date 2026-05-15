@@ -16,6 +16,7 @@ import {
 const region = "europe-west2"
 const membershipTab = "Membership"
 const ridesTab = "Rides"
+const rideTagsTab = "Ride tags"
 const signupsTab = "Signups"
 
 type MemberRecord = ReturnType<typeof decodeMembersCsv>[number]
@@ -44,7 +45,6 @@ const membershipHeaders = [
 ]
 
 const rideHeaders = [
-    "Activity date",
     "Activity id",
     "Title",
     "Date",
@@ -66,6 +66,11 @@ const signupHeaders = [
     "Membership type",
     "Gender",
     "Age range"
+]
+
+const rideTagHeaders = [
+    "Activity id",
+    "Tag"
 ]
 
 function getExportDateIso(nowDate: Date = new Date()): string {
@@ -107,7 +112,7 @@ async function createSheetsClient(): Promise<sheets_v4.Sheets> {
     return google.sheets({ version: "v4", auth })
 }
 
-async function getRows(
+async function getRangeRows(
     sheets: sheets_v4.Sheets,
     spreadsheetId: string,
     range: string
@@ -120,13 +125,99 @@ async function getRows(
     return (result.data.values || []).map((row) => row.map((value) => `${value}`))
 }
 
+async function getSheetRowCount(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    tabName: string
+): Promise<number> {
+    const result = await sheets.spreadsheets.get({
+        spreadsheetId,
+        includeGridData: false,
+        fields: "sheets(properties(title,gridProperties(rowCount)))"
+    })
+
+    const sheet = result.data.sheets?.find((entry) => entry.properties?.title === tabName)
+    return sheet?.properties?.gridProperties?.rowCount || 0
+}
+
+async function rowHasData(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    tabName: string,
+    lastColumn: string,
+    rowNumber: number
+): Promise<boolean> {
+    const row = await getRangeRows(
+        sheets,
+        spreadsheetId,
+        `'${tabName}'!A${rowNumber}:${lastColumn}${rowNumber}`
+    )
+    const values = row[0] || []
+    return values.some((value) => value.trim() !== "")
+}
+
+async function getLastDataRowNumber(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    tabName: string,
+    lastColumn: string
+): Promise<number> {
+    const maxRow = await getSheetRowCount(sheets, spreadsheetId, tabName)
+    if (maxRow === 0) return 0
+
+    let low = 1
+    let high = maxRow
+    let lastDataRow = 0
+
+    while (low <= high) {
+        const mid = Math.floor((low + high) / 2)
+        if (await rowHasData(sheets, spreadsheetId, tabName, lastColumn, mid)) {
+            lastDataRow = mid
+            low = mid + 1
+        } else {
+            high = mid - 1
+        }
+    }
+
+    return lastDataRow
+}
+
+async function getLastRowValues(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    tabName: string,
+    lastColumn: string
+): Promise<string[] | null> {
+    const lastDataRow = await getLastDataRowNumber(sheets, spreadsheetId, tabName, lastColumn)
+    if (lastDataRow <= 1) return null
+
+    const rows = await getRangeRows(
+        sheets,
+        spreadsheetId,
+        `'${tabName}'!A${lastDataRow}:${lastColumn}${lastDataRow}`
+    )
+    return rows[0] || null
+}
+
+async function getLatestTimestampFromLastRow(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    tabName: string,
+    lastColumn: string,
+    timestampColumnIndex: number
+): Promise<admin.firestore.Timestamp | null> {
+    const lastRow = await getLastRowValues(sheets, spreadsheetId, tabName, lastColumn)
+    if (!lastRow) return null
+    return asTimestamp(lastRow[timestampColumnIndex])
+}
+
 async function ensureHeaders(
     sheets: sheets_v4.Sheets,
     spreadsheetId: string,
     tabName: string,
     headers: string[]
 ): Promise<void> {
-    const existing = await getRows(sheets, spreadsheetId, `'${tabName}'!A1:Z1`)
+    const existing = await getRangeRows(sheets, spreadsheetId, `'${tabName}'!A1:Z1`)
     if (existing.length > 0) return
 
     await sheets.spreadsheets.values.append({
@@ -153,11 +244,11 @@ async function appendRows(
     })
 }
 
-function shouldSkipMembershipExport(existingRows: string[][], exportDate: string): boolean {
-    const monthKey = getMonthKey(exportDate)
-    return existingRows
-        .slice(1)
-        .some((row) => getMonthKey(row[0] || "") === monthKey)
+function shouldSkipMembershipExportFromLastRow(lastRow: string[] | null, exportDate: string): boolean {
+    if (!lastRow) return false
+    const lastExportDate = lastRow[0] || ""
+    if (!lastExportDate) return false
+    return getMonthKey(lastExportDate) === getMonthKey(exportDate)
 }
 
 function createMembershipRows(records: MemberRecord[], exportDate: string): string[][] {
@@ -171,18 +262,6 @@ function createMembershipRows(records: MemberRecord[], exportDate: string): stri
             getOutwardPostcode(record.Postcode),
             normalizeLeader(record["Ride Leader"])
         ])
-}
-
-function getLatestTimestamp(rows: string[][], columnIndex: number): admin.firestore.Timestamp | null {
-    let latest: admin.firestore.Timestamp | null = null
-    rows.slice(1).forEach((row) => {
-        const ts = asTimestamp(row[columnIndex])
-        if (!ts) return
-        if (!latest || ts.toMillis() > latest.toMillis()) {
-            latest = ts
-        }
-    })
-    return latest
 }
 
 type EventDocument = {
@@ -201,11 +280,10 @@ type EventDocument = {
 
 function toRideRow(id: string, eventData: EventDocument): string[] {
     const tags = Array.isArray(eventData.tags)
-        ? eventData.tags.map((tag) => asString(tag)).filter((tag) => !!tag).join("|")
+        ? eventData.tags.map((tag) => asString(tag)).filter((tag) => !!tag).join(",")
         : ""
 
     return [
-        toIsoString(eventData.date),
         id,
         asString(eventData.title),
         toIsoString(eventData.date),
@@ -223,11 +301,10 @@ function toRideRow(id: string, eventData: EventDocument): string[] {
 
 async function exportRides(
     sheets: sheets_v4.Sheets,
-    spreadsheetId: string
+    spreadsheetId: string,
+    latestCreatedAt: admin.firestore.Timestamp | null
 ): Promise<number> {
     await ensureHeaders(sheets, spreadsheetId, ridesTab, rideHeaders)
-    const existingRows = await getRows(sheets, spreadsheetId, `'${ridesTab}'!A:M`)
-    const latestCreatedAt = getLatestTimestamp(existingRows, 7)
 
     let query: FirebaseFirestore.Query = admin.firestore()
         .collection("events")
@@ -243,6 +320,39 @@ async function exportRides(
         .filter((row) => row[7])
 
     await appendRows(sheets, spreadsheetId, ridesTab, rows)
+    return rows.length
+}
+
+async function exportRideTags(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    latestCreatedAt: admin.firestore.Timestamp | null
+): Promise<number> {
+    await ensureHeaders(sheets, spreadsheetId, rideTagsTab, rideTagHeaders)
+
+    let query: FirebaseFirestore.Query = admin.firestore()
+        .collection("events")
+        .orderBy("createdAt")
+
+    if (latestCreatedAt) {
+        query = query.where("createdAt", ">", latestCreatedAt)
+    }
+
+    const snapshot = await query.get()
+    const rows: string[][] = []
+
+    snapshot.docs.forEach((doc) => {
+        const eventData = doc.data() as EventDocument
+        const tags = Array.isArray(eventData.tags)
+            ? eventData.tags.map((tag) => asString(tag)).filter((tag) => !!tag)
+            : []
+
+        tags.forEach((tag) => {
+            rows.push([doc.id, tag])
+        })
+    })
+
+    await appendRows(sheets, spreadsheetId, rideTagsTab, rows)
     return rows.length
 }
 
@@ -308,8 +418,13 @@ async function exportSignups(
     spreadsheetId: string
 ): Promise<number> {
     await ensureHeaders(sheets, spreadsheetId, signupsTab, signupHeaders)
-    const existingRows = await getRows(sheets, spreadsheetId, `'${signupsTab}'!A:F`)
-    const latestCreatedAt = getLatestTimestamp(existingRows, 1)
+    const latestCreatedAt = await getLatestTimestampFromLastRow(
+        sheets,
+        spreadsheetId,
+        signupsTab,
+        "F",
+        1
+    )
     const demographicsByUid = await loadMemberDemographics()
 
     const snapshot = await admin.firestore().collectionGroup("activity").get()
@@ -348,9 +463,9 @@ export const ExportMembershipToSheets = onMessagePublished({
     const exportDate = getExportDateIso()
 
     await ensureHeaders(sheets, secrets.google.sheetId, membershipTab, membershipHeaders)
-    const existingRows = await getRows(sheets, secrets.google.sheetId, `'${membershipTab}'!A:F`)
+    const lastRow = await getLastRowValues(sheets, secrets.google.sheetId, membershipTab, "F")
 
-    if (shouldSkipMembershipExport(existingRows, exportDate)) {
+    if (shouldSkipMembershipExportFromLastRow(lastRow, exportDate)) {
         logger.info(`Membership export skipped for ${getMonthKey(exportDate)}; rows already exist`)
         return
     }
@@ -360,7 +475,7 @@ export const ExportMembershipToSheets = onMessagePublished({
     logger.info(`Membership export appended ${rows.length} rows for ${exportDate}`)
 })
 
-export const ScheduleActivityExports = onSchedule({
+export const ExportActivitiesToSheets = onSchedule({
     schedule: "15 5 * * *",
     timeZone: "Europe/London",
     region,
@@ -369,9 +484,17 @@ export const ScheduleActivityExports = onSchedule({
 }, async () => {
     const secrets = getAppSecrets()
     const sheets = await createSheetsClient()
+    const latestRidesCreatedAt = await getLatestTimestampFromLastRow(
+        sheets,
+        secrets.google.sheetId,
+        ridesTab,
+        "M",
+        7
+    )
 
-    const ridesExported = await exportRides(sheets, secrets.google.sheetId)
+    const ridesExported = await exportRides(sheets, secrets.google.sheetId, latestRidesCreatedAt)
+    const rideTagsExported = await exportRideTags(sheets, secrets.google.sheetId, latestRidesCreatedAt)
     const signupsExported = await exportSignups(sheets, secrets.google.sheetId)
 
-    logger.info(`Activity export complete. Rides: ${ridesExported}, Signups: ${signupsExported}`)
+    logger.info(`Activity export complete. Rides: ${ridesExported}, Ride tags: ${rideTagsExported}, Signups: ${signupsExported}`)
 })
