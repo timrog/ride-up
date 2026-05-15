@@ -1,5 +1,5 @@
 export const allTags = [
-    'Intro', 'Social', 'Social Mod', 'Mod', 'Mod+', 'Pacy', 'Race',
+    'Intro', 'Social', 'Social Mod', 'Mod', 'Mod+', 'Pacy', 'Race', 'Time-trial',
     'Women-only', 'Virtual', 'Triathlon', 'Gravel', 'MTB', 'Social event',
     'Flexibility', 'Meeting', 'Swim', 'Run']
 
