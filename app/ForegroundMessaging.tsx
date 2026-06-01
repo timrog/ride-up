@@ -25,14 +25,9 @@ export function ForegroundMessaging() {
                         }
                     }
 
-                    const notification = new Notification(notificationTitle, notificationOptions)
-                    
-                    notification.onclick = (event) => {
-                        event.preventDefault()
-                        const url = (notification as any).data?.url || '/'
-                        window.location.href = url
-                        notification.close()
-                    }
+                    navigator.serviceWorker.ready.then((registration) => {
+                        registration.showNotification(notificationTitle, notificationOptions)
+                    })
                 }
             })
         }

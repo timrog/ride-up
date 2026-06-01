@@ -216,7 +216,27 @@ export default function NotificationsPage() {
         try {
             setIsSendingTest(true)
             await new Promise(resolve => setTimeout(resolve, 5000))
-            await sendTestNotification()
+            const result = await sendTestNotification()
+            if (result.success) {
+                addToast({
+                    title: 'Test Sent',
+                    description: `Notification sent to ${result.count} device(s)${result.failures ? `, ${result.failures} failed` : ''}.`,
+                    color: 'success'
+                })
+            } else {
+                addToast({
+                    title: 'Send Failed',
+                    description: result.error ?? 'Unknown error',
+                    color: 'danger'
+                })
+            }
+        } catch (error) {
+            console.error('Error sending test notification:', error)
+            addToast({
+                title: 'Send Failed',
+                description: error instanceof Error ? error.message : 'Unknown error',
+                color: 'danger'
+            })
         } finally {
             setIsSendingTest(false)
         }
@@ -424,7 +444,7 @@ export default function NotificationsPage() {
 
             <Instructions context={context} />
 
-            {context != "ios-browser" && context != "android-browser" && (
+            {(context != "ios-browser" && context != "android-browser") || isNotificationsEnabled ? (
             <div className="space-y-6">
                 <div>
                         <h2 className="text-xl font-semibold mb-3">Notify me whenever someone posts one of these...</h2>
@@ -468,7 +488,7 @@ export default function NotificationsPage() {
                         onPress={savePreferences}
                             isLoading={isSaving}
                     >
-                            Enable Notifications
+                            {isNotificationsEnabled ? "Update" : "Enable Notifications"}
                     </Button>
 
                     <Button

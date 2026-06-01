@@ -39,3 +39,14 @@ self.addEventListener('notificationclick', function (event: any) {
 
 firebase.initializeApp(firebaseConfig)
 const messaging = firebase.messaging()
+
+messaging.onBackgroundMessage(function (payload: any) {
+    const title = payload.notification?.title || payload.data?.title || 'Notification'
+    const options = {
+        body: payload.notification?.body || payload.data?.body || '',
+        icon: payload.notification?.icon || '/app-icon.png',
+        tag: payload.data?.tag || 'notification',
+        data: payload.data
+    };
+    (self as any).registration.showNotification(title, options)
+})
