@@ -15,7 +15,7 @@ interface LogContext {
     httpRequest?: {
         requestMethod: string
         requestUrl: string
-        userAgent: string | null
+        browser: string | null
         remoteIp: string | null
     }
 }

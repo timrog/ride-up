@@ -50,7 +50,6 @@ export function enrichSpanFromRequest(span: Span | undefined, requestUrlOrPath: 
     const notificationSource = extractNotificationSource(requestUrlOrPath)
     if (!notificationSource) return
 
-    console.log('notification source:', notificationSource)
     span.setAttribute('notificationSource', notificationSource)
 }
 

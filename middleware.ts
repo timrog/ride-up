@@ -9,8 +9,8 @@ export function middleware(request: NextRequest) {
     logRequest(sessionToken, {
         httpRequest: {
             requestMethod: request.method,
-            requestUrl: request.nextUrl.pathname,
-            userAgent: request.headers.get('user-agent'),
+            requestUrl: `${request.nextUrl.pathname}${request.nextUrl.search}`,
+            browser: request.headers.get('user-agent'),
             remoteIp: request.headers.get('x-forwarded-for'),
         },
     })

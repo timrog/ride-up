@@ -18,6 +18,8 @@ const membershipTab = "Membership"
 const ridesTab = "Rides"
 const rideTagsTab = "Ride tags"
 const signupsTab = "Signups"
+const checkpointsTab = "Checkpoints"
+const ridesLatestCreatedAtCheckpointKey = "ridesLatestCreatedAt"
 
 type MemberRecord = ReturnType<typeof decodeMembersCsv>[number]
 
@@ -73,6 +75,11 @@ const rideTagHeaders = [
     "Tag"
 ]
 
+const checkpointHeaders = [
+    "Key",
+    "Value"
+]
+
 function getExportDateIso(nowDate: Date = new Date()): string {
     return nowDate.toISOString().slice(0, 10)
 }
@@ -125,11 +132,51 @@ async function getRangeRows(
     return (result.data.values || []).map((row) => row.map((value) => `${value}`))
 }
 
+async function ensureTabExists(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    tabName: string
+): Promise<void> {
+    const metadata = await sheets.spreadsheets.get({
+        spreadsheetId,
+        includeGridData: false,
+        fields: "sheets(properties(title))"
+    })
+
+    const exists = (metadata.data.sheets || [])
+        .some((entry) => entry.properties?.title === tabName)
+    if (exists) return
+
+    try {
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: {
+                requests: [
+                    {
+                        addSheet: {
+                            properties: {
+                                title: tabName
+                            }
+                        }
+                    }
+                ]
+            }
+        })
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (!message.includes("already exists")) {
+            throw error
+        }
+    }
+}
+
 async function getSheetRowCount(
     sheets: sheets_v4.Sheets,
     spreadsheetId: string,
     tabName: string
 ): Promise<number> {
+    await ensureTabExists(sheets, spreadsheetId, tabName)
+
     const result = await sheets.spreadsheets.get({
         spreadsheetId,
         includeGridData: false,
@@ -211,12 +258,56 @@ async function getLatestTimestampFromLastRow(
     return asTimestamp(lastRow[timestampColumnIndex])
 }
 
+async function getRidesLatestCreatedAtCheckpoint(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string
+): Promise<admin.firestore.Timestamp | null> {
+    await ensureHeaders(sheets, spreadsheetId, checkpointsTab, checkpointHeaders)
+    const rows = await getRangeRows(sheets, spreadsheetId, `'${checkpointsTab}'!A:B`)
+
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i] || []
+        if ((row[0] || "") !== ridesLatestCreatedAtCheckpointKey) continue
+        return asTimestamp(row[1])
+    }
+
+    return null
+}
+
+async function setRidesLatestCreatedAtCheckpoint(
+    sheets: sheets_v4.Sheets,
+    spreadsheetId: string,
+    latestCreatedAt: admin.firestore.Timestamp
+): Promise<void> {
+    await ensureHeaders(sheets, spreadsheetId, checkpointsTab, checkpointHeaders)
+    const rows = await getRangeRows(sheets, spreadsheetId, `'${checkpointsTab}'!A:B`)
+    const value = latestCreatedAt.toDate().toISOString()
+
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i] || []
+        if ((row[0] || "") !== ridesLatestCreatedAtCheckpointKey) continue
+
+        const rowNumber = i + 1
+        await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${checkpointsTab}'!B${rowNumber}`,
+            valueInputOption: "RAW",
+            requestBody: { values: [[value]] }
+        })
+        return
+    }
+
+    await appendRows(sheets, spreadsheetId, checkpointsTab, [[ridesLatestCreatedAtCheckpointKey, value]])
+}
+
 async function ensureHeaders(
     sheets: sheets_v4.Sheets,
     spreadsheetId: string,
     tabName: string,
     headers: string[]
 ): Promise<void> {
+    await ensureTabExists(sheets, spreadsheetId, tabName)
+
     const existing = await getRangeRows(sheets, spreadsheetId, `'${tabName}'!A1:Z1`)
     if (existing.length > 0) return
 
@@ -303,7 +394,7 @@ async function exportRides(
     sheets: sheets_v4.Sheets,
     spreadsheetId: string,
     latestCreatedAt: admin.firestore.Timestamp | null
-): Promise<number> {
+): Promise<{ count: number; latestExportedCreatedAt: admin.firestore.Timestamp | null }> {
     await ensureHeaders(sheets, spreadsheetId, ridesTab, rideHeaders)
 
     let query: FirebaseFirestore.Query = admin.firestore()
@@ -315,12 +406,20 @@ async function exportRides(
     }
 
     const snapshot = await query.get()
+    let latestExportedCreatedAt: admin.firestore.Timestamp | null = null
     const rows = snapshot.docs
-        .map((doc) => toRideRow(doc.id, doc.data() as EventDocument))
-        .filter((row) => row[7])
+        .map((doc) => {
+            const data = doc.data() as EventDocument
+            const createdAt = asTimestamp(data.createdAt)
+            if (createdAt && (!latestExportedCreatedAt || createdAt.toMillis() > latestExportedCreatedAt.toMillis())) {
+                latestExportedCreatedAt = createdAt
+            }
+            return toRideRow(doc.id, data)
+        })
+        .filter((row) => row[6])
 
     await appendRows(sheets, spreadsheetId, ridesTab, rows)
-    return rows.length
+    return { count: rows.length, latestExportedCreatedAt }
 }
 
 async function exportRideTags(
@@ -484,17 +583,27 @@ export const ExportActivitiesToSheets = onSchedule({
 }, async () => {
     const secrets = getAppSecrets()
     const sheets = await createSheetsClient()
-    const latestRidesCreatedAt = await getLatestTimestampFromLastRow(
-        sheets,
-        secrets.google.sheetId,
-        ridesTab,
-        "M",
-        7
-    )
+    let latestRidesCreatedAt = await getRidesLatestCreatedAtCheckpoint(sheets, secrets.google.sheetId)
+    if (!latestRidesCreatedAt) {
+        latestRidesCreatedAt = await getLatestTimestampFromLastRow(
+            sheets,
+            secrets.google.sheetId,
+            ridesTab,
+            "L",
+            6
+        )
+    }
 
-    const ridesExported = await exportRides(sheets, secrets.google.sheetId, latestRidesCreatedAt)
+    const ridesResult = await exportRides(sheets, secrets.google.sheetId, latestRidesCreatedAt)
     const rideTagsExported = await exportRideTags(sheets, secrets.google.sheetId, latestRidesCreatedAt)
+    if (ridesResult.latestExportedCreatedAt) {
+        await setRidesLatestCreatedAtCheckpoint(
+            sheets,
+            secrets.google.sheetId,
+            ridesResult.latestExportedCreatedAt
+        )
+    }
     const signupsExported = await exportSignups(sheets, secrets.google.sheetId)
 
-    logger.info(`Activity export complete. Rides: ${ridesExported}, Ride tags: ${rideTagsExported}, Signups: ${signupsExported}`)
+    logger.info(`Activity export complete. Rides: ${ridesResult.count}, Ride tags: ${rideTagsExported}, Signups: ${signupsExported}`)
 })
