@@ -444,7 +444,7 @@ export default function NotificationsPage() {
 
             <Instructions context={context} />
 
-            {(context != "ios-browser" && context != "android-browser") || isNotificationsEnabled && (
+            {((context != "ios-browser" && context != "android-browser") || isNotificationsEnabled) && (
             <div className="space-y-6">
                 <div>
                         <h2 className="text-xl font-semibold mb-3">Notify me whenever someone posts one of these...</h2>
@@ -488,7 +488,7 @@ export default function NotificationsPage() {
                         onPress={savePreferences}
                             isLoading={isSaving}
                     >
-                            {isNotificationsEnabled ? "Update" : "Enable Notifications"}
+                            {isNotificationsEnabled ? "Update Settings" : "Enable Notifications"}
                     </Button>
 
                     <Button
