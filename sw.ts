@@ -23,16 +23,24 @@ self.addEventListener('notificationclick', function (event: any) {
 
     const fcmData = event.notification.data?.FCM_MSG
     const url = fcmData?.fcmOptions?.link || fcmData?.data?.url || event.notification.data?.url || '/'
+    const absoluteUrl = new URL(url, self.location.origin).toString()
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async function (clientList: any[]) {
             for (const client of clientList) {
+                await client.focus()
+                client.postMessage({ type: 'notification-click', url: absoluteUrl })
+
                 if ('navigate' in client) {
-                    await client.focus()
-                    return client.navigate(url)
+                    try {
+                        await client.navigate(absoluteUrl)
+                    } catch {
+                        // iOS standalone can ignore navigate on an existing client.
+                    }
                 }
+                return
             }
-            return clients.openWindow(url)
+            return clients.openWindow(absoluteUrl)
         })
     )
 })
