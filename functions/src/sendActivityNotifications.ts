@@ -128,16 +128,15 @@ async function sendSignupNotifications(
     const source = 'activity-signup'
 
     const message : MulticastMessage = {
-        notification: {
-            title: eventData.title,
-            body
-        },
         webpush:{
             fcmOptions: {
                 link: withNotificationSource(`/events/${eventId}`, source),
             }
         },
         data: {
+            title: eventData.title,
+            body,
+            icon: '/app-icon.png',
             eventId,
             url: withNotificationSource(`/events/${eventId}`, source),
             tag: source
@@ -224,16 +223,15 @@ async function sendCommentNotifications(
     const source = 'activity-comment'
 
     const message : MulticastMessage = {
-        notification: {
-            title: commenterName,
-            body: `${eventData.title}: ${excerpt}`
-        },
         webpush: { 
             fcmOptions: {  
                 link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
+            title: commenterName,
+            body: `${eventData.title}: ${excerpt}`,
+            icon: '/app-icon.png',
             eventId,
             url: withNotificationSource(`/events/${eventId}`, source),
             tag: source

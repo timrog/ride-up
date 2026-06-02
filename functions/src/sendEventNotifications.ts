@@ -134,16 +134,15 @@ async function sendNewEventNotifications(eventId: string, eventData: CalendarEve
 
     // Send FCM notifications
     const message = {
-        notification: {
-            title: 'New ride posted',
-            body: `${eventData.createdByName} posted ${eventData.title}. Sign up now!`
-        },
         webpush: { 
             fcmOptions: {  
                 link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
+            title: 'New ride posted',
+            body: `${eventData.createdByName} posted ${eventData.title}. Sign up now!`,
+            icon: '/app-icon.png',
             eventId,
             url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
             tag: source
@@ -175,16 +174,15 @@ async function sendLeaderChangeNotification(eventId: string, newLeaderId: string
     const source = 'leader-change'
 
     const message = {
-        notification: {
-            title: 'You\'re the leader',
-            body: `You have been made the leader of ${eventTitle}`
-        },
         webpush: { 
             fcmOptions: {  
                 link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
+            title: 'You\'re the leader',
+            body: `You have been made the leader of ${eventTitle}`,
+            icon: '/app-icon.png',
             eventId,
             url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
             tag: source
@@ -227,16 +225,15 @@ async function sendCancellationNotifications(eventId: string, eventData: Calenda
     const source = 'event-cancelled'
 
     const message : MulticastMessage = {
-        notification: {
-            title: 'Event cancelled',
-            body: `"${eventData.title}" has been cancelled`
-        },
         webpush: { 
             fcmOptions: {  
                 link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
+            title: 'Event cancelled',
+            body: `"${eventData.title}" has been cancelled`,
+            icon: '/app-icon.png',
             eventId,
             url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
             tag: source
@@ -275,16 +272,15 @@ async function sendUpdateNotifications(eventId: string, eventData: CalendarEvent
     const source = 'event-updated'
 
     const message : MulticastMessage= {
-        notification: {
-            title: 'Event updated',
-            body: `"${eventData.title}" has been updated`
-        },
         webpush: { 
             fcmOptions: {  
                 link: withNotificationSource(`/events/${eventId}`, source)
             }
         },
         data: {
+            title: 'Event updated',
+            body: `"${eventData.title}" has been updated`,
+            icon: '/app-icon.png',
             eventId,
             url: withNotificationSource(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://calendar.vcgh.co.uk'}/events/${eventId}`, source),
             tag: source

@@ -13,11 +13,15 @@ export function ForegroundMessaging() {
             onMessage(messaging, (payload) => {
                 console.log('Foreground message received:', payload)
 
+                if (payload.notification) {
+                    return
+                }
+
                 if ('Notification' in window && Notification.permission === 'granted') {
-                    const notificationTitle = payload.notification?.title || payload.data?.title || 'New notification'
+                    const notificationTitle = payload.data?.title || 'New notification'
                     const notificationOptions = {
-                        body: payload.notification?.body || payload.data?.body || '',
-                        icon: payload.notification?.icon || payload.data?.icon || '/app-icon.png',
+                        body: payload.data?.body || '',
+                        icon: payload.data?.icon || '/app-icon.png',
                         tag: payload.data?.tag || 'notification',
                         data: {
                             url: payload.data?.url || '/',

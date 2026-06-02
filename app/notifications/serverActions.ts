@@ -29,19 +29,16 @@ export async function sendTestNotification() {
 
         const eventsSnapshot = await db.collection('events').limit(1).offset(Math.floor(Math.random() * (await db.collection('events').count().get()).data().count)).get()
         const id = eventsSnapshot.docs[0].id
+        const url = `/events/${id}`
+        const title = `${process.env.NODE_ENV === 'development' ? 'Development:' : ''} Your notifications work`
+        const body = 'Now go out and ride your bike.'
 
         const message = {
-            notification: {
-                title: `${process.env.NODE_ENV === 'development' ? 'Development:' : ''} Your notifications work`,
-                body: 'Now go out and ride your bike.'
-            },
-            webpush: { 
-                fcmOptions: {  
-                    link: `/events/${id}`
-                }
-            },
             data: {
-                url: `/events/${id}`,
+                title,
+                body,
+                url,
+                icon: '/app-icon.png',
                 tag: 'test-notification'
             },
             tokens: prefs.tokens
