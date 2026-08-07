@@ -176,7 +176,7 @@ export default function EventForm({ event, onSubmit }
                     onChange={e => setFormData(prevState => ({ ...prevState, duration: e.target.value }))}
                     required
                 >
-                    {Array.from({ length: 16 }, (_, i) => (i + 1) * 30).map(minutes => (
+                    {Array.from({ length: 32 }, (_, i) => (i + 1) * 30).map(minutes => (
                         <SelectItem key={minutes}>
                             {`${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}`.trim()}
                         </SelectItem>
