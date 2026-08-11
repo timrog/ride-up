@@ -7,7 +7,7 @@ import SelectableTags from "@/components/SelectableTags"
 
 import { CalendarDate, DateValue, fromDate, getLocalTimeZone, Time, toCalendarDate, toCalendarDateTime, today, toTime } from "@internationalized/date"
 import { defaultLocations } from "app/tags"
-import { XCircleIcon } from "@heroicons/react/24/outline"
+import { MapIcon, XCircleIcon } from "@heroicons/react/24/outline"
 import { IconInline, IconLine } from "@/components/IconLine"
 import { useCancelEvent } from "app/events/[id]/useCancelEvent"
 import { useRefresh } from "app/providers"
@@ -24,6 +24,11 @@ type FormDataType = {
     location: string
     tags: string[]
     isCancelled?: boolean
+}
+
+type DefaultLocationOption = {
+    loc: string
+    coords: [number, number]
 }
 
 type DraftContextType = {
@@ -82,6 +87,16 @@ export default function EventForm({ event, onSubmit }
     }
 
     const [formData, setFormData] = useState<FormDataType>(initialFormData)
+    const typedDefaultLocations = defaultLocations as Array<[string, [number, number]]>
+    const defaultLocationOptions: DefaultLocationOption[] = typedDefaultLocations.map(([loc, coords]) => ({
+        loc,
+        coords: [coords[0], coords[1]]
+    }))
+    const [selectedMeetingPointName, setSelectedMeetingPointName] = useState<string | null>(
+        defaultLocationOptions.some(({ loc }) => loc === initialFormData.location)
+            ? initialFormData.location
+            : null
+    )
 
     useEffect(() => {
         if (!event) setDraft(formData)
@@ -119,6 +134,10 @@ export default function EventForm({ event, onSubmit }
         handleValueChange(name as keyof FormDataType)(value)
     }
 
+    const selectedMeetingPoint = selectedMeetingPointName
+        ? defaultLocationOptions.find(({ loc }) => loc === selectedMeetingPointName) ?? null
+        : null
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6 mx-auto max-w-2xl">
             <Input
@@ -138,10 +157,21 @@ export default function EventForm({ event, onSubmit }
                     allowsCustomValue
                     label="Meeting point"
                     size="lg"
-                    placeholder={`e.g. ${defaultLocations[0]}`}
+                    placeholder={`e.g. ${defaultLocationOptions[0].loc}`}
                     inputValue={formData.location}
-                    defaultItems={defaultLocations.map(loc => ({ loc }))}
-                    onInputChange={handleValueChange('location')}
+                    selectedKey={selectedMeetingPointName}
+                    defaultItems={defaultLocationOptions}
+                    onInputChange={(value) => {
+                        handleValueChange('location')(value)
+                        if (value !== selectedMeetingPointName) {
+                            setSelectedMeetingPointName(null)
+                        }
+                    }}
+                    onSelectionChange={(key) => {
+                        const selectedLocationName = key ? String(key) : ''
+                        handleValueChange('location')(selectedLocationName)
+                        setSelectedMeetingPointName(selectedLocationName || null)
+                    }}
                     isRequired
                 >
                     {(item) => <AutocompleteItem key={item.loc}>{item.loc}</AutocompleteItem>}
@@ -152,6 +182,19 @@ export default function EventForm({ event, onSubmit }
                     </Alert>
                 )}
             </div>
+
+            {selectedMeetingPoint && (
+                <IconLine className="flex flex-col w-full" icon={MapIcon}>
+                    <a
+                        href={`https://ridewithgps.com/explore?b=n!${encodeURIComponent(selectedMeetingPoint.loc)}!${selectedMeetingPoint.coords[0]}!${selectedMeetingPoint.coords[1]}~2km&length=*100km&m=routes&q=VCGH`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Find routes that start from here
+                    </a>
+                </IconLine>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
                 <DatePicker label="Date" size="lg" isRequired value={formData.date}
