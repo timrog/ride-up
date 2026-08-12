@@ -7,19 +7,19 @@ interface IconLineProps {
     children: React.ReactNode
 }
 
-export function IconLine({ icon, size = 18, children }: IconLineProps) {
+export function IconLine({ icon, size = 18, className, children }: IconLineProps) {
     const Icon = icon
     return (
-        <p className={`flex items-center gap-1`}>
+        <p className={`flex items-center gap-1 ${className}`}>
             <Icon height={size} /> {children}
         </p>
     )
 }
 
-export function IconInline({ icon, size = 18, children }: IconLineProps) {
+export function IconInline({ icon, size = 18, className, children }: IconLineProps) {
     const Icon = icon
     return (
-        <span className={`inline-flex items-center gap-1`}>
+        <span className={`inline-flex items-center gap-1 ${className}`}>
             <Icon height={size} /> {children}
         </span>
     )

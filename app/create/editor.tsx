@@ -181,19 +181,19 @@ export default function EventForm({ event, onSubmit }
                         Hint: add a postcode to help riders find the meeting point.
                     </Alert>
                 )}
-            </div>
 
-            {selectedMeetingPoint && (
-                <IconLine className="flex flex-col w-full" icon={MapIcon}>
-                    <a
-                        href={`https://ridewithgps.com/explore?b=n!${encodeURIComponent(selectedMeetingPoint.loc)}!${selectedMeetingPoint.coords[0]}!${selectedMeetingPoint.coords[1]}~2km&length=*100km&m=routes&q=VCGH`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Find routes that start from here
-                    </a>
-                </IconLine>
-            )}
+                {selectedMeetingPoint && (
+                    <IconLine className="my-4" icon={MapIcon}>
+                        <a
+                            href={`https://ridewithgps.com/explore?b=n!${encodeURIComponent(selectedMeetingPoint.loc)}!${selectedMeetingPoint.coords[0]}!${selectedMeetingPoint.coords[1]}~2km&length=*100km&m=routes&q=VCGH`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Find routes that start from here
+                        </a>
+                    </IconLine>
+                )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
