@@ -29,10 +29,11 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({
-  main, children
+  main, children, headerIcons
 }: Readonly<{
   main: React.ReactNode,
-  children?: React.ReactNode
+  children?: React.ReactNode,
+  headerIcons?: React.ReactNode
 }>) {
   return (
     <html lang="en">
@@ -43,7 +44,7 @@ export default function RootLayout({
             <main>
               {main}
             </main>
-            <DrawerPortal>
+            <DrawerPortal header={headerIcons}>
               {children}
             </DrawerPortal>
           </div>

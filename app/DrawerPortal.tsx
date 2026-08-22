@@ -7,11 +7,11 @@ import { ChevronLeftIcon } from "@heroicons/react/24/outline"
 import Link from "next/link"
 import { Button } from "@heroui/react"
 
-export default function DrawerPortal({ children }: { children: React.ReactNode }) {
+export default function DrawerPortal({ children, header }: { children: React.ReactNode, header?: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
     const isOpen = pathname !== '/'
-    
+
     return (
         <Drawer
             isOpen={isOpen}
@@ -21,8 +21,9 @@ export default function DrawerPortal({ children }: { children: React.ReactNode }
             hideCloseButton
         >
             <DrawerContent>
-                <DrawerHeader>
+                <DrawerHeader className="flex w-full items-center justify-between">
                     <Button isIconOnly as={Link} href="/" variant="light" color="secondary" className="-ml-2"><ChevronLeftIcon height={36} /></Button>
+                    {header && <div className="ml-3">{header}</div>}
                 </DrawerHeader>
                 <DrawerBody className="p-0">
                     {children}
