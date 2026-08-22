@@ -43,6 +43,6 @@ export function getOutwardPostcode(postcode: string | undefined): string {
     return compact.slice(0, compact.length - 3)
 }
 
-export function normalizeLeader(value: string | undefined): string {
-    return (value || '').trim().toLowerCase() === 'yes' ? 'yes' : 'no'
+export function normalizeLeader(value: string | undefined): boolean {
+    return (value || '').trim().toLowerCase() === 'yes'
 }

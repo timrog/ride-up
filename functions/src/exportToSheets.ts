@@ -20,8 +20,12 @@ const rideTagsTab = "Ride tags"
 const signupsTab = "Signups"
 const checkpointsTab = "Checkpoints"
 const ridesLatestCreatedAtCheckpointKey = "ridesLatestCreatedAt"
+const googleSheetsEpochOffsetDays = 25569
+const millisecondsPerDay = 24 * 60 * 60 * 1000
 
 type MemberRecord = ReturnType<typeof decodeMembersCsv>[number]
+type SheetCellValue = string | number | boolean
+type SheetRow = SheetCellValue[]
 
 type MemberDemographics = {
     membershipType: string
@@ -91,7 +95,20 @@ function getMonthKey(dateString: string): string {
 function asTimestamp(value: unknown): admin.firestore.Timestamp | null {
     if (value instanceof admin.firestore.Timestamp) return value
     if (value instanceof Date) return admin.firestore.Timestamp.fromDate(value)
+    if (typeof value === "number" && Number.isFinite(value)) {
+        const parsed = new Date((value - googleSheetsEpochOffsetDays) * millisecondsPerDay)
+        if (!Number.isNaN(parsed.getTime())) {
+            return admin.firestore.Timestamp.fromDate(parsed)
+        }
+    }
     if (typeof value === "string") {
+        const asNumber = Number(value)
+        if (value.trim() !== "" && Number.isFinite(asNumber)) {
+            const parsedFromSerial = new Date((asNumber - googleSheetsEpochOffsetDays) * millisecondsPerDay)
+            if (!Number.isNaN(parsedFromSerial.getTime())) {
+                return admin.firestore.Timestamp.fromDate(parsedFromSerial)
+            }
+        }
         const parsed = new Date(value)
         if (!Number.isNaN(parsed.getTime())) {
             return admin.firestore.Timestamp.fromDate(parsed)
@@ -100,9 +117,11 @@ function asTimestamp(value: unknown): admin.firestore.Timestamp | null {
     return null
 }
 
-function toIsoString(value: unknown): string {
+function toSheetsDateTime(value: unknown): number | "" {
     const ts = asTimestamp(value)
-    return ts ? ts.toDate().toISOString() : ""
+    return ts
+        ? (ts.toMillis() / millisecondsPerDay) + googleSheetsEpochOffsetDays
+        : ""
 }
 
 function asString(value: unknown): string {
@@ -281,7 +300,7 @@ async function setRidesLatestCreatedAtCheckpoint(
 ): Promise<void> {
     await ensureHeaders(sheets, spreadsheetId, checkpointsTab, checkpointHeaders)
     const rows = await getRangeRows(sheets, spreadsheetId, `'${checkpointsTab}'!A:B`)
-    const value = latestCreatedAt.toDate().toISOString()
+    const value = toSheetsDateTime(latestCreatedAt)
 
     for (let i = 1; i < rows.length; i++) {
         const row = rows[i] || []
@@ -291,7 +310,7 @@ async function setRidesLatestCreatedAtCheckpoint(
         await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: `'${checkpointsTab}'!B${rowNumber}`,
-            valueInputOption: "RAW",
+            valueInputOption: "USER_ENTERED",
             requestBody: { values: [[value]] }
         })
         return
@@ -323,14 +342,14 @@ async function appendRows(
     sheets: sheets_v4.Sheets,
     spreadsheetId: string,
     tabName: string,
-    rows: string[][]
+    rows: SheetRow[]
 ): Promise<void> {
     if (rows.length === 0) return
 
     await sheets.spreadsheets.values.append({
         spreadsheetId,
         range: `'${tabName}'!A1`,
-        valueInputOption: "RAW",
+        valueInputOption: "USER_ENTERED",
         requestBody: { values: rows }
     })
 }
@@ -342,7 +361,7 @@ function shouldSkipMembershipExportFromLastRow(lastRow: string[] | null, exportD
     return getMonthKey(lastExportDate) === getMonthKey(exportDate)
 }
 
-function createMembershipRows(records: MemberRecord[], exportDate: string): string[][] {
+function createMembershipRows(records: MemberRecord[], exportDate: string): SheetRow[] {
     return records
         .filter((record) => !!record.Email)
         .map((record) => [
@@ -369,7 +388,7 @@ type EventDocument = {
     isCancelled?: unknown
 }
 
-function toRideRow(id: string, eventData: EventDocument): string[] {
+function toRideRow(id: string, eventData: EventDocument): SheetRow {
     const tags = Array.isArray(eventData.tags)
         ? eventData.tags.map((tag) => asString(tag)).filter((tag) => !!tag).join(",")
         : ""
@@ -377,11 +396,11 @@ function toRideRow(id: string, eventData: EventDocument): string[] {
     return [
         id,
         asString(eventData.title),
-        toIsoString(eventData.date),
+        toSheetsDateTime(eventData.date),
         asString(eventData.duration),
         asString(eventData.location),
         asString(eventData.routeLink),
-        toIsoString(eventData.createdAt),
+        toSheetsDateTime(eventData.createdAt),
         asString(eventData.createdBy),
         asString(eventData.createdByName),
         asString(eventData.linkId),
@@ -438,7 +457,7 @@ async function exportRideTags(
     }
 
     const snapshot = await query.get()
-    const rows: string[][] = []
+    const rows: SheetRow[] = []
 
     snapshot.docs.forEach((doc) => {
         const eventData = doc.data() as EventDocument
@@ -487,8 +506,8 @@ function toSignupRows(
     signups: Record<string, SignupRecord>,
     latestCreatedAt: admin.firestore.Timestamp | null,
     demographicsByUid: Map<string, MemberDemographics>
-): string[][] {
-    const rows: string[][] = []
+): SheetRow[] {
+    const rows: SheetRow[] = []
 
     Object.values(signups).forEach((signup) => {
         const createdAt = asTimestamp(signup.createdAt)
@@ -501,7 +520,7 @@ function toSignupRows(
         const demographics = demographicsByUid.get(userId)
         rows.push([
             eventId,
-            createdAt.toDate().toISOString(),
+            toSheetsDateTime(createdAt),
             userId,
             demographics?.membershipType || asString(signup.membership) || "Unknown",
             demographics?.gender || "Unknown",
@@ -527,7 +546,7 @@ async function exportSignups(
     const demographicsByUid = await loadMemberDemographics()
 
     const snapshot = await admin.firestore().collectionGroup("activity").get()
-    const rows: string[][] = []
+    const rows: SheetRow[] = []
 
     snapshot.docs.forEach((doc) => {
         if (doc.id !== "private") return
@@ -546,7 +565,11 @@ async function exportSignups(
         rows.push(...signupRows)
     })
 
-    rows.sort((a, b) => new Date(a[1]).getTime() - new Date(b[1]).getTime())
+    rows.sort((a, b) => {
+        const aTs = asTimestamp(a[1])
+        const bTs = asTimestamp(b[1])
+        return (aTs?.toMillis() || 0) - (bTs?.toMillis() || 0)
+    })
     await appendRows(sheets, spreadsheetId, signupsTab, rows)
     return rows.length
 }
