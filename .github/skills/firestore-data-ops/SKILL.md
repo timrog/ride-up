@@ -31,7 +31,7 @@ Use these files first before searching broadly:
 
 - Event shape (including title and tags): `app/types.ts` (CalendarEvent)
 - Event read model with events collection path: `app/events/[id]/layout.tsx`
-- Events collection usage examples: `app/serverActions.ts`, `functions/src/exportToSheets.ts`
+- Events collection usage examples: `app/serverActions.ts`, `functions/src/exportToBigQuery.ts`
 
 ## Required Inputs
 
