@@ -84,6 +84,19 @@ type BigQueryField = {
     mode?: "REPEATED"
 }
 
+type MemberExportRow = {
+    id: string
+    exportDate: string
+    membershipType: string
+    gender: string
+    ageRange: string
+    outwardPostcode: string
+    leader: boolean
+    memberSince: string | null
+    expiresOn: string | null
+    renewedOn: string | null
+}
+
 function getErrorDetails(error: unknown): { name: string; message: string; stack?: string } {
     if (error instanceof Error) {
         return {
@@ -100,12 +113,16 @@ function getErrorDetails(error: unknown): { name: string; message: string; stack
 }
 
 const membersSchema: BigQueryField[] = [
+    { name: "id", type: "STRING" },
     { name: "export_date", type: "DATE" },
     { name: "membership_type", type: "STRING" },
     { name: "gender", type: "STRING" },
     { name: "age_range", type: "STRING" },
     { name: "outward_postcode", type: "STRING" },
-    { name: "leader", type: "BOOLEAN" }
+    { name: "leader", type: "BOOLEAN" },
+    { name: "member_since", type: "DATE" },
+    { name: "expires_on", type: "DATE" },
+    { name: "renewed_on", type: "DATE" }
 ]
 
 const activitiesSchema: BigQueryField[] = [
@@ -134,10 +151,6 @@ const signupsSchema: BigQueryField[] = [
 
 function getExportDateIso(nowDate: Date = new Date()): string {
     return nowDate.toISOString().slice(0, 10)
-}
-
-function getMonthStart(exportDate: string): string {
-    return `${exportDate.slice(0, 7)}-01`
 }
 
 function asString(value: unknown): string {
@@ -183,6 +196,11 @@ function asTimestamp(value: unknown): admin.firestore.Timestamp | null {
 function asDate(value: unknown): Date | null {
     const ts = asTimestamp(value)
     return ts ? ts.toDate() : null
+}
+
+function asIsoDate(value: unknown): string | null {
+    const date = asString(value).trim()
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null
 }
 
 function getBigQueryConfig(): BigQueryConfig {
@@ -257,27 +275,86 @@ async function truncateTable(client: BigQuery, config: BigQueryConfig, tableId: 
     await client.query({ query, location: region })
 }
 
-async function hasMembershipExportForMonth(
+async function ensureMembersTableColumns(
     client: BigQuery,
-    config: BigQueryConfig,
-    exportDate: string
-): Promise<boolean> {
+    config: BigQueryConfig
+): Promise<void> {
     const projectId = config.projectId || await client.getProjectId()
     const query = `
-        SELECT EXISTS(
-            SELECT 1
-            FROM \`${projectId}.${config.datasetId}.${config.membersTableId}\`
-            WHERE export_date >= @monthStart
-              AND export_date < DATE_ADD(@monthStart, INTERVAL 1 MONTH)
-        ) AS has_export
+        ALTER TABLE \`${projectId}.${config.datasetId}.${config.membersTableId}\`
+        ADD COLUMN IF NOT EXISTS member_since DATE;
+        ALTER TABLE \`${projectId}.${config.datasetId}.${config.membersTableId}\`
+        ADD COLUMN IF NOT EXISTS expires_on DATE;
+        ALTER TABLE \`${projectId}.${config.datasetId}.${config.membersTableId}\`
+        ADD COLUMN IF NOT EXISTS renewed_on DATE
     `
-    const [rows] = await client.query({
+    await client.query({ query, location: region })
+}
+
+async function mergeMembers(
+    client: BigQuery,
+    config: BigQueryConfig,
+    members: MemberExportRow[]
+): Promise<void> {
+    if (members.length === 0) return
+
+    const projectId = config.projectId || await client.getProjectId()
+    const query = `
+        MERGE \`${projectId}.${config.datasetId}.${config.membersTableId}\` AS target
+        USING (
+            SELECT
+                JSON_VALUE(member, "$.id") AS id,
+                DATE(JSON_VALUE(member, "$.exportDate")) AS export_date,
+                JSON_VALUE(member, "$.membershipType") AS membership_type,
+                JSON_VALUE(member, "$.gender") AS gender,
+                JSON_VALUE(member, "$.ageRange") AS age_range,
+                JSON_VALUE(member, "$.outwardPostcode") AS outward_postcode,
+                CAST(JSON_VALUE(member, "$.leader") AS BOOL) AS leader,
+                DATE(JSON_VALUE(member, "$.memberSince")) AS member_since,
+                DATE(JSON_VALUE(member, "$.expiresOn")) AS expires_on,
+                DATE(JSON_VALUE(member, "$.renewedOn")) AS renewed_on
+            FROM UNNEST(JSON_QUERY_ARRAY(PARSE_JSON(@membersJson))) AS member
+        ) AS source
+        ON target.id = source.id
+        WHEN MATCHED THEN UPDATE SET
+            export_date = source.export_date,
+            membership_type = source.membership_type,
+            gender = source.gender,
+            age_range = source.age_range,
+            outward_postcode = source.outward_postcode,
+            leader = source.leader,
+            member_since = source.member_since,
+            expires_on = source.expires_on,
+            renewed_on = source.renewed_on
+        WHEN NOT MATCHED THEN INSERT (
+            id,
+            export_date,
+            membership_type,
+            gender,
+            age_range,
+            outward_postcode,
+            leader,
+            member_since,
+            expires_on,
+            renewed_on
+        ) VALUES (
+            source.id,
+            source.export_date,
+            source.membership_type,
+            source.gender,
+            source.age_range,
+            source.outward_postcode,
+            source.leader,
+            source.member_since,
+            source.expires_on,
+            source.renewed_on
+        )
+    `
+    await client.query({
         query,
         location: region,
-        params: { monthStart: getMonthStart(exportDate) }
+        params: { membersJson: JSON.stringify(members) }
     })
-    const result = rows[0] as { has_export?: unknown } | undefined
-    return result?.has_export === true
 }
 
 async function getCheckpoint(field: string): Promise<admin.firestore.Timestamp | null> {
@@ -325,35 +402,34 @@ export const ExportMembershipToBigQuery = onMessagePublished({
 }, async (event) => {
     const config = getBigQueryConfig()
     const client = createBigQueryClient(config)
-    const membersTable = await ensureTable(client, config, config.membersTableId, membersSchema)
+    await ensureTable(client, config, config.membersTableId, membersSchema)
+    await ensureMembersTableColumns(client, config)
 
     const exportDate = getExportDateIso()
-    if (await hasMembershipExportForMonth(client, config, exportDate)) {
-        logger.info(`BigQuery membership export skipped for ${exportDate.slice(0, 7)}; rows already exist`)
-        return
-    }
-
     const records = decodeMembersCsv(event)
+    const membersById = new Map<string, MemberExportRow>()
 
-    const rows: BigQueryInsertRow[] = records
-        .filter((record) => !!record.Email)
-        .map((record) => {
-            const email = asString(record.Email).toLowerCase()
-            return {
-                insertId: `${exportDate}:${email}`,
-                json: {
-                    export_date: exportDate,
-                    membership_type: asString(record.Membership) || "Unknown",
-                    gender: normalizeGender(record.Gender),
-                    age_range: getAgeRangeFromDob(record["Date of birth"]),
-                    outward_postcode: getOutwardPostcode(record.Postcode),
-                    leader: normalizeLeader(record["Ride Leader"])
-                }
-            }
+    records.forEach((record) => {
+        const id = asString(record["membermojo ID"]).trim()
+        if (!id) return
+
+        membersById.set(id, {
+            id,
+            exportDate,
+            membershipType: asString(record.Membership) || "Unknown",
+            gender: normalizeGender(record.Gender),
+            ageRange: getAgeRangeFromDob(record["Date of birth"]),
+            outwardPostcode: getOutwardPostcode(record.Postcode),
+            leader: normalizeLeader(record["Ride Leader"]),
+            memberSince: asIsoDate(record["Member since"]),
+            expiresOn: asIsoDate(record["Expires on"]),
+            renewedOn: asIsoDate(record["Renewed on"])
         })
+    })
 
-    await insertRows(membersTable, rows)
-    logger.info(`BigQuery membership export complete. Rows: ${rows.length}, dataset: ${config.datasetId}, table: ${config.membersTableId}`)
+    const members = Array.from(membersById.values())
+    await mergeMembers(client, config, members)
+    logger.info(`BigQuery membership export complete. Upserted: ${members.length}, dataset: ${config.datasetId}, table: ${config.membersTableId}`)
 })
 
 export const ExportActivitiesToBigQuery = onSchedule({

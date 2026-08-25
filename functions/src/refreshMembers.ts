@@ -134,6 +134,7 @@ export const RefreshMembers = onMessagePublished({
 })
 
 export type MemberEntry = {
+    'membermojo ID': string,
     Email: string,
     'First name': string
     'Last name': string
@@ -143,4 +144,7 @@ export type MemberEntry = {
     'Members directory'?: string
     'Mobile number'?: string
     'Site role'?: string
+    'Expires on'?: string
+    'Renewed on'?: string
+    'Member since'?: string
 } & Record<string, string>
