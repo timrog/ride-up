@@ -79,11 +79,11 @@ export default function NotificationsPage() {
             activityForSignups: true,
             tokens: []
         }
-        
+
         try {
             const docRef = doc(db, 'notifications', user.uid)
             const docSnap = await getDoc(docRef)
-            
+
             if (docSnap.exists()) {
                 const data = docSnap.data()
                 loadedPreferences = {
@@ -277,7 +277,7 @@ export default function NotificationsPage() {
 
     async function savePreferences() {
         if (!user) return
-        
+
         const permission = await requestNotificationPermission()
         if (permission !== 'granted') {
             addToast({
@@ -417,7 +417,7 @@ export default function NotificationsPage() {
                         </ol>
                     </div>
                 )
-            
+
             default:
                 return null
         }
@@ -445,24 +445,25 @@ export default function NotificationsPage() {
             <Instructions context={context} />
 
             {((context != "ios-browser" && context != "android-browser") || isNotificationsEnabled) && (
-            <div className="space-y-6">
-                <div>
+                <div className="space-y-6">
+                    <div>
                         <h2 className="text-xl font-semibold mb-3">Notify me whenever someone posts one of these...</h2>
-                    <SelectableTags 
-                        value={preferences.tags}
-                        onValueChange={(tags) => setPreferences(prev => ({ ...prev, tags }))}
-                    />
-                </div>
+                        <p className="text-sm mb-0">Select the activities you're interested in</p>
+                        <SelectableTags
+                            value={preferences.tags}
+                            onValueChange={(tags) => setPreferences(prev => ({ ...prev, tags }))}
+                        />
+                    </div>
 
-                <div className="space-y-3">
+                    <div className="space-y-3">
                         <h2 className="text-xl font-semibold mb-3">And let me know about...</h2>
-                    
-                    <Switch
-                        isSelected={preferences.eventUpdates}
-                        onValueChange={(checked) => setPreferences(prev => ({ ...prev, eventUpdates: checked }))}
-                    >
+
+                        <Switch
+                            isSelected={preferences.eventUpdates}
+                            onValueChange={(checked) => setPreferences(prev => ({ ...prev, eventUpdates: checked }))}
+                        >
                             Updates to rides I'm signed up to (changes, cancellations)
-                    </Switch>
+                        </Switch>
 
                         <WithAuth role="leader">
                             <Switch
@@ -473,37 +474,35 @@ export default function NotificationsPage() {
                             </Switch>
                         </WithAuth>
 
-                    <Switch
-                        isSelected={preferences.activityForSignups}
-                        onValueChange={(checked) => setPreferences(prev => ({ ...prev, activityForSignups: checked }))}
-                    >
+                        <Switch
+                            isSelected={preferences.activityForSignups}
+                            onValueChange={(checked) => setPreferences(prev => ({ ...prev, activityForSignups: checked }))}
+                        >
                             Activity on rides I'm signed up to (new signups, comments)
-                    </Switch>
-                </div>
+                        </Switch>
+                    </div>
 
-                <div className="flex gap-3">
-                    <Button
-                        color="primary"
-                        size="lg"
-                        onPress={savePreferences}
+                    <div className="flex gap-3">
+                        <Button
+                            color="primary"
+                            size="lg"
+                            onPress={savePreferences}
                             isLoading={isSaving}
-                    >
+                        >
                             {isNotificationsEnabled ? "Update Settings" : "Enable Notifications"}
-                    </Button>
+                        </Button>
 
-                    <Button
-                        color="secondary"
-                        size="lg"
-                        onPress={handleSendTest}
-                        isLoading={isSendingTest}
+                        <Button
+                            color="secondary"
+                            size="lg"
+                            onPress={handleSendTest}
+                            isLoading={isSendingTest}
                             isDisabled={!isNotificationsEnabled}
-                    >
-                        Send Test Notification
-                    </Button>
+                        >
+                            Send Test Notification
+                        </Button>
+                    </div>
                 </div>
-
-                    <p>Notifications are experimental. In case of problems, please submit feedback <Link href="/about">here</Link>.</p>
-            </div>
             )}
         </div>
     )
