@@ -384,7 +384,7 @@ export default function NotificationsPage() {
                         <p className="text-warning-700 font-semibold mb-2">iPhone instructions:</p>
                         <p>To get notifications on this iPhone/iPad, you need follow a few simple steps to install this site as an App on your home screen.</p>
                         <ol className="list-decimal list-inside space-y-1 text-warning-700">
-                            <li>Below, tap the Share button <ArrowUpOnSquareIcon className="inline-block w-4 h-4 ml-1" /></li>
+                            <li>Below, tap the Share button <ArrowUpOnSquareIcon className="inline-block w-4 h-4 ml-1" />. It might be under the (⋯) menu.</li>
                             <li>Scroll down and tap "<PlusCircleIcon className="inline-block w-4 h-4 ml-1" /> Add to Home Screen"</li>
                             <li>Go to the home screen and open the installed app and sign in</li>
                             <li>In the app, go to Notifications in the menu to setup your notifications</li>

@@ -39,10 +39,12 @@ export default function Activity({ id, isActive, eventLeaderId }: { id: string, 
         if (!currentUser) return console.error("No user signed in")
         if ('preventDefault' in e) e.preventDefault()
         if (commentBusy) return
+        const trimmedComment = comment.trim()
+        if (!trimmedComment) return
         setCommentBusy(true)
 
         try {
-            const result = await addComment(id, comment)
+            const result = await addComment(id, trimmedComment)
             if (result.success) {
                 setComment('')
             } else {
@@ -113,89 +115,89 @@ export default function Activity({ id, isActive, eventLeaderId }: { id: string, 
 
     return <>
         <div className="md:grid md:grid-cols-2 md:gap-8"
-        style={{ gridTemplateColumns: '1fr 2fr' }}>
+            style={{ gridTemplateColumns: '1fr 2fr' }}>
 
-        <div>
-            <h2>{signupCount} {signupCount == 1 ? 'sign-up' : 'sign-ups'}</h2>
+            <div>
+                <h2>{signupCount} {signupCount == 1 ? 'sign-up' : 'sign-ups'}</h2>
 
-            <WithAuth role="member">
-                <ul className="text-lg">
-                    {
+                <WithAuth role="member">
+                    <ul className="text-lg">
+                        {
                             sortedSignups
-                            .map(([userId, signup]) =>
-                                <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
-                                    <Avatar src={signup.avatarUrl || undefined}
-                                        tabIndex={1}
-                                        className="relative transition-transform duration-200 ease-out hover:z-[1] hover:scale-300 focus:z-[1] focus:scale-300 focus-visible:z-[1] focus-visible:scale-300"
-                                    />
-                                    {signup.name}{signup.isLeader && signup.userId !== eventLeaderId && isViewingAsEventLeader ? '▲' : ''}
-                                    {signup.membership && signup.membership.toLowerCase().indexOf('trial') >= 0 &&
-                                        <Chip size="sm" className="ml-1 bg-yellow-500 text-black uppercase">
-                                            Trial
-                                        </Chip>
-                                    }
-                                    {signup.phone &&
-                                        <Link href={`https://wa.me/${signup.phone.replace(/\D/g, '')}`} target="_blank">
-                                            <img src="/whatsapp.png" alt="WhatsApp" title={signup.phone} width={24} />
-                                        </Link>}
-                                </li>
-                            )}
+                                .map(([userId, signup]) =>
+                                    <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
+                                        <Avatar src={signup.avatarUrl || undefined}
+                                            tabIndex={1}
+                                            className="relative transition-transform duration-200 ease-out hover:z-[1] hover:scale-300 focus:z-[1] focus:scale-300 focus-visible:z-[1] focus-visible:scale-300"
+                                        />
+                                        {signup.name}{signup.isLeader && signup.userId !== eventLeaderId && isViewingAsEventLeader ? '▲' : ''}
+                                        {signup.membership && signup.membership.toLowerCase().indexOf('trial') >= 0 &&
+                                            <Chip size="sm" className="ml-1 bg-yellow-500 text-black uppercase">
+                                                Trial
+                                            </Chip>
+                                        }
+                                        {signup.phone &&
+                                            <Link href={`https://wa.me/${signup.phone.replace(/\D/g, '')}`} target="_blank">
+                                                <img src="/whatsapp.png" alt="WhatsApp" title={signup.phone} width={24} />
+                                            </Link>}
+                                    </li>
+                                )}
                     </ul>
                     {isViewingAsEventLeader && hasOtherLeaders && (
                         <p className="mt-6 text-sm text-gray-500">
                             ▲ Need another leader? Try one of these.
                         </p>
                     )}
-            </WithAuth>
+                </WithAuth>
 
-            {isActive && currentUser && <div className="my-3 flex flex-col gap-2">
-                {allUsers.map((user) => (
-                    <SignupButton
-                        key={user.signupKey}
-                        eventId={id}
-                        displayName={extraUsers.length ? user.displayName : undefined}
-                        signupKey={user.signupKey}
-                        active={!!activity.signups?.[user.signupKey]}
-                    />
-                ))}
-            </div>}
-        </div>
-        <div>
-            <h2>Comments</h2>
-            <div>
-                {activity.comments?.map(c => (
-                    <Card
-                        className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
-                        <CardHeader className="font-black flex gap-2 z-0">
-                            <Avatar src={c.avatarUrl || undefined} />
-                            <span>{c.name} &middot; {formatRelative(c.createdAt.toDate())}</span>
-                        </CardHeader>
-                        <CardBody className="whitespace-pre-line">{c.text}</CardBody >
-                    </Card >
-                ))
-                }
-            </div >
-
-            <div className="flex">
-                <Textarea
-                    classNames={{ input: 'self-center', inputWrapper: 'px-2' }}
-                    color="primary"
-                    min={1} minRows={1}
-                    size="lg"
-                    placeholder="Type a message"
-                    value={comment}
-                    radius="full"
-                    onChange={(e) => setComment(e.target.value)}
-                    onKeyDown={(e: KeyboardEvent) => e.key === 'Enter' && !e.shiftKey && submitComment(e)}
-                    startContent={
-                        <Avatar src={currentUser?.photoURL || undefined} className="self-start" />
-                    }
-                    endContent={
-                        <Button isIconOnly radius="full" className="p-2 self-end" color="primary" onPress={e => submitComment(e)}><PaperAirplaneIcon /></Button>
-                    }
-                />
-
+                {isActive && currentUser && <div className="my-3 flex flex-col gap-2">
+                    {allUsers.map((user) => (
+                        <SignupButton
+                            key={user.signupKey}
+                            eventId={id}
+                            displayName={extraUsers.length ? user.displayName : undefined}
+                            signupKey={user.signupKey}
+                            active={!!activity.signups?.[user.signupKey]}
+                        />
+                    ))}
+                </div>}
             </div>
+            <div>
+                <h2>Comments</h2>
+                <div>
+                    {activity.comments?.map(c => (
+                        <Card
+                            className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
+                            <CardHeader className="font-black flex gap-2 z-0">
+                                <Avatar src={c.avatarUrl || undefined} />
+                                <span>{c.name} &middot; {formatRelative(c.createdAt.toDate())}</span>
+                            </CardHeader>
+                            <CardBody className="whitespace-pre-line">{c.text}</CardBody >
+                        </Card >
+                    ))
+                    }
+                </div >
+
+                <div className="flex">
+                    <Textarea
+                        classNames={{ input: 'self-center', inputWrapper: 'px-2' }}
+                        color="primary"
+                        min={1} minRows={1}
+                        size="lg"
+                        placeholder="Type a message"
+                        value={comment}
+                        radius="full"
+                        onChange={(e) => setComment(e.target.value)}
+                        onKeyDown={(e: KeyboardEvent) => e.key === 'Enter' && !e.shiftKey && submitComment(e)}
+                        startContent={
+                            <Avatar src={currentUser?.photoURL || undefined} className="self-start" />
+                        }
+                        endContent={
+                            <Button isIconOnly radius="full" className="p-2 self-end" color="primary" onPress={e => submitComment(e)}><PaperAirplaneIcon /></Button>
+                        }
+                    />
+
+                </div>
             </div>
         </div>
         <div className="text-small text-gray-400 text-center mt-4 mb-0 p-0">
