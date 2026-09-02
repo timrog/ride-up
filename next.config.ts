@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
 			dynamic: 30,
 		},
 	},
+	turbopack: {},
 	webpack(config, options) {
 		config.ignoreWarnings = [
 			...(config.ignoreWarnings ?? []),
