@@ -3,6 +3,8 @@ import { onMessagePublished } from "firebase-functions/v2/pubsub"
 import { MemberPhotoMessage } from "./shared"
 import admin from "firebase-admin"
 import makeFetchCookie from 'fetch-cookie'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 
 const region = 'europe-west2'
 const fetchCookie = makeFetchCookie(fetch)
@@ -29,13 +31,15 @@ export const ProcessMemberPhoto = onMessagePublished({
         }
 
         const contentType = response.headers.get('content-type') || 'image/jpeg'
-        const arrayBuffer = await response.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
         const bucket = admin.storage().bucket()
         const fileName = `member-photos/${uid}`
         const file = bucket.file(fileName)
 
-        await file.save(buffer, {
+        if (!response.body) {
+            throw new Error(`Photo response for ${email} had no body`)
+        }
+
+        await pipeline(Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>), file.createWriteStream({
             metadata: {
                 contentType,
                 metadata: {
@@ -43,8 +47,8 @@ export const ProcessMemberPhoto = onMessagePublished({
                     uploadedAt: new Date().toISOString()
                 }
             },
-            public: true
-        })
+            predefinedAcl: 'publicRead'
+        }))
 
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`
         logger.info(`Uploaded photo for ${email} to ${publicUrl}`)
