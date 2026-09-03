@@ -8,7 +8,18 @@ import { PubSub } from '@google-cloud/pubsub'
 const region = 'europe-west2'
 
 function formatE164PhoneNumber(phoneNumber: string): string {
-    return phoneNumber.replace(/^(t:)?(0|\+?44)?/g, '+44').replace(/[^\d+]/g, '')
+    const normalized = phoneNumber.replace(/[^\d+]/g, '')
+    if (normalized.startsWith('+')) return normalized
+    if (normalized.startsWith('00')) return `+${normalized.slice(2)}`
+    if (normalized.startsWith('44')) return `+${normalized}`
+    if (normalized.startsWith('0')) return `+44${normalized.slice(1)}`
+    return `+44${normalized}`
+}
+
+function getFirebaseErrorCode(error: unknown): string | undefined {
+    if (typeof error !== 'object' || error === null || !('code' in error)) return undefined
+    const code = error.code
+    return typeof code === 'string' ? code : undefined
 }
 
 type MemberRecord = ReturnType<typeof decodeMembersCsv>[number]
@@ -176,6 +187,13 @@ export const SendMembersToAuth = onMessagePublished({
                 return createdUser
             } catch (error) {
                 logger.error(`Error creating user for ${incoming!.Email}`, error)
+                if (getFirebaseErrorCode(error) === 'auth/phone-number-already-exists' && phoneNumber) {
+                    logger.warn(`Retrying user creation for ${incoming!.Email} without phone number`)
+                    return auth.createUser({
+                        email: incoming!.Email,
+                        displayName: displayName || undefined
+                    })
+                }
                 throw error
             }
         }
@@ -198,6 +216,13 @@ export const SendMembersToAuth = onMessagePublished({
                 return updatedUser
             } catch (error) {
                 logger.error(`Error updating user ${key} ${JSON.stringify(updates)}`, error, updates)
+                if (getFirebaseErrorCode(error) === 'auth/phone-number-already-exists' && updates.phoneNumber) {
+                    const retryUpdates = { ...updates }
+                    delete retryUpdates.phoneNumber
+                    logger.warn(`Retrying profile update for ${key} without phone number`)
+                    if (Object.keys(retryUpdates).length === 0) return existing
+                    return auth.updateUser(existing.uid, retryUpdates)
+                }
                 throw error
             }
         }
