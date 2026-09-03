@@ -53,12 +53,17 @@ async function sendBatch(requests: BatchRequest[], apiKey: string) {
             }
         })
 
+        if (!response.ok) {
+            const body = await response.text()
+            throw new Error(`MailerLite batch request failed with ${response.status} ${response.statusText}: ${body}`)
+        }
+
         let decoded = await response.json() as { total: number, failed: number, responses: { code: number, body: string }[] }
+        const failures = decoded.responses.filter(r => r.code >= 400)
 
-        if (decoded.failed > 0)
-            console.log(`Sent batch: total: ${decoded.total} failed ${decoded.failed}`)
-
-        console.log("Failures", decoded.responses.filter(r => r.code >= 400))
+        if (decoded.failed > 0 || failures.length > 0) {
+            throw new Error(`MailerLite batch request contained ${decoded.failed} failed operations: ${JSON.stringify(failures)}`)
+        }
     }
 }
 
@@ -72,7 +77,16 @@ async function getCurrentSubscribers(apiKey: string) {
                 authorization: `Bearer ${apiKey}`
             }
         })
+
+        if (!response.ok) {
+            const body = await response.text()
+            throw new Error(`MailerLite subscribers request failed with ${response.status} ${response.statusText}: ${body}`)
+        }
+
         let records = await response.json() as { data: { id: string, email: string }[], links: { next: string } }
+        if (!Array.isArray(records.data)) {
+            throw new Error('MailerLite subscribers response did not contain a data array')
+        }
         emails = emails.concat(records.data.map(d => ({ id: d.id, email: d.email })))
         url = records.links?.next
     }
