@@ -189,12 +189,12 @@ async function updateCreatedEvents(userId: string, preferences: NotificationPref
         const privateRef = db.doc(`events/${eventDoc.id}/activity/private`)
 
         updates.push(
-            privateRef.update({
+            privateRef.set({
                 [`notificationSubscribers.${userId}`]: {
                     eventUpdates: preferences.eventUpdates ?? true,
                     activity: preferences.activityForLeader ?? true 
                 }
-            })
+            }, { merge: true })
         )
     }
 
