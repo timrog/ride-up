@@ -2,6 +2,7 @@ import { onMessagePublished } from "firebase-functions/pubsub"
 import { getAppSecrets } from "./secrets"
 import { decodeMembersCsv } from "./shared"
 import { appSecretsParam } from "./index"
+import * as logger from "firebase-functions/logger"
 
 const region = 'europe-west2'
 
@@ -21,22 +22,27 @@ type BatchRequest = {
 export const SendMembersToMailerlite = onMessagePublished({
     topic: "all-members", region, secrets: [appSecretsParam]
 }, async (event) => {
-    const secrets = getAppSecrets()
-    const records = decodeMembersCsv(event)
-    const apiKey = secrets.mailerlite.apiKey
+    try {
+        const secrets = getAppSecrets()
+        const records = decodeMembersCsv(event)
+        const apiKey = secrets.mailerlite.apiKey
 
-    console.log(`Updating mailerlite ${records.length} records`)
-    let currentEmails = await getCurrentSubscribers(apiKey)
+        logger.info(`Updating mailerlite ${records.length} records`)
+        let currentEmails = await getCurrentSubscribers(apiKey)
 
-    let addRequests = records.map(row => (
-        { "method": "POST", "path": "/api/subscribers", "body": { "email": row.Email, fields: { name: row["First name"], last_name: row["Last name"], membership: row.Membership } } }
-    ))
-    let deleteRequests = currentEmails.filter(e => !addRequests.some(r => r.body.email.trim().toLowerCase() == e.email.trim().toLowerCase()))
-        .map(e => (
-            { "method": "DELETE", "path": `/api/subscribers/${e.id}` }
+        let addRequests = records.map(row => (
+            { "method": "POST", "path": "/api/subscribers", "body": { "email": row.Email, fields: { name: row["First name"], last_name: row["Last name"], membership: row.Membership } } }
         ))
+        let deleteRequests = currentEmails.filter(e => !addRequests.some(r => r.body.email.trim().toLowerCase() == e.email.trim().toLowerCase()))
+            .map(e => (
+                { "method": "DELETE", "path": `/api/subscribers/${e.id}` }
+            ))
 
-    await sendBatch([...addRequests, ...deleteRequests], apiKey)
+        await sendBatch([...addRequests, ...deleteRequests], apiKey)
+    } catch (error) {
+        logger.error('Error updating MailerLite subscribers', error)
+        throw error
+    }
 })
 
 async function sendBatch(requests: BatchRequest[], apiKey: string) {
@@ -91,6 +97,6 @@ async function getCurrentSubscribers(apiKey: string) {
         url = records.links?.next
     }
 
-    console.log(`${emails.length} currently active subscribers`)
+    logger.info(`${emails.length} currently active subscribers`)
     return emails
 }
