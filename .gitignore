@@ -163,3 +163,4 @@ firebase-export-*
 service-account-key.json
 emulator-data
 public/sw.js
+.secrets

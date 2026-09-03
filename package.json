@@ -9,7 +9,8 @@
 		"build": "node scripts/generate-sw.cjs && NODE_OPTIONS=--enable-source-maps next build --webpack",
 		"start": "next start",
 		"emulator": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
-		"otel": "podman run --rm --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/jaeger:latest"
+		"otel": "podman run --rm --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/jaeger:latest",
+		"deploy-secrets": "firebase functions:secrets:set APP_SECRETS --data-file .secrets"
 	},
 	"dependencies": {
 		"@google-cloud/pubsub": "^5.3.0",
