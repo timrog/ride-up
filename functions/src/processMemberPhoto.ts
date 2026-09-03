@@ -7,16 +7,18 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 const region = 'europe-west2'
-const fetchCookie = makeFetchCookie(fetch)
 
 export const ProcessMemberPhoto = onMessagePublished({
     topic: "member-photos",
     region,
     maxInstances: 1,
+    concurrency: 1,
+    memory: '512MiB',
     minInstances: 0,
     retry: true
 }, async (event) => {
     const { photoUrl, email, uid, cookies } = event.data.message.json as MemberPhotoMessage
+    const fetchCookie = makeFetchCookie(fetch)
 
     try {
         for (let c of cookies) {
@@ -47,7 +49,8 @@ export const ProcessMemberPhoto = onMessagePublished({
                     uploadedAt: new Date().toISOString()
                 }
             },
-            predefinedAcl: 'publicRead'
+            predefinedAcl: 'publicRead',
+            resumable: false
         }))
 
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`
