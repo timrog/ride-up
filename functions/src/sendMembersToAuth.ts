@@ -186,7 +186,6 @@ export const SendMembersToAuth = onMessagePublished({
                 created++
                 return createdUser
             } catch (error) {
-                logger.error(`Error creating user for ${incoming!.Email}`, error)
                 if (getFirebaseErrorCode(error) === 'auth/phone-number-already-exists' && phoneNumber) {
                     logger.warn(`Retrying user creation for ${incoming!.Email} without phone number`)
                     return auth.createUser({
@@ -194,6 +193,7 @@ export const SendMembersToAuth = onMessagePublished({
                         displayName: displayName || undefined
                     })
                 }
+                logger.error(`Error creating user for ${incoming!.Email}`, error)
                 throw error
             }
         }
@@ -215,7 +215,6 @@ export const SendMembersToAuth = onMessagePublished({
                 profilesUpdated++
                 return updatedUser
             } catch (error) {
-                logger.error(`Error updating user ${key} ${JSON.stringify(updates)}`, error, updates)
                 if (getFirebaseErrorCode(error) === 'auth/phone-number-already-exists' && updates.phoneNumber) {
                     const retryUpdates = { ...updates }
                     delete retryUpdates.phoneNumber
@@ -223,6 +222,7 @@ export const SendMembersToAuth = onMessagePublished({
                     if (Object.keys(retryUpdates).length === 0) return existing
                     return auth.updateUser(existing.uid, retryUpdates)
                 }
+                logger.error(`Error updating user ${key} ${JSON.stringify(updates)}`, error, updates)
                 throw error
             }
         }
