@@ -1,5 +1,5 @@
 import * as logger from "firebase-functions/logger"
-import { onMessagePublished } from "firebase-functions/v2/pubsub"
+import { onTaskDispatched } from "firebase-functions/v2/tasks"
 import { MemberPhotoMessage } from "./shared"
 import admin from "firebase-admin"
 import makeFetchCookie from 'fetch-cookie'
@@ -8,16 +8,22 @@ import { pipeline } from 'node:stream/promises'
 
 const region = 'europe-west2'
 
-export const ProcessMemberPhoto = onMessagePublished({
-    topic: "member-photos",
+export const ProcessMemberPhotoTask = onTaskDispatched<MemberPhotoMessage>({
     region,
     maxInstances: 1,
     concurrency: 1,
     memory: '512MiB',
     minInstances: 0,
-    retry: true
-}, async (event) => {
-    const { photoUrl, email, uid, cookies } = event.data.message.json as MemberPhotoMessage
+    rateLimits: {
+        maxConcurrentDispatches: 1,
+        maxDispatchesPerSecond: 0.1
+    },
+    retryConfig: {
+        maxAttempts: 5,
+        minBackoffSeconds: 60
+    }
+}, async (request) => {
+    const { photoUrl, email, uid, cookies } = request.data
     const fetchCookie = makeFetchCookie(fetch)
 
     try {

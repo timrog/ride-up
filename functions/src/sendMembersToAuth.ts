@@ -3,7 +3,7 @@ import { onMessagePublished } from "firebase-functions/v2/pubsub"
 import { decodeMembersCsv, MemberPhotoMessage } from "./shared"
 import { getAgeRangeFromDob, normalizeGender } from "./memberDemographics"
 import admin from "firebase-admin"
-import { PubSub } from '@google-cloud/pubsub'
+import { getFunctions } from "firebase-admin/functions"
 
 const region = 'europe-west2'
 
@@ -38,7 +38,7 @@ type UserClaims = {
 }
 
 function getDisplayName(record: MemberRecord): string | null {
-    if(!record["First name"] && !record["Last name"]) {
+    if (!record["First name"] && !record["Last name"]) {
         return null
     }
     return `${record["First name"]} ${record["Last name"]}`.trim()
@@ -70,7 +70,7 @@ function getExtraUsers(duplicateRecords: MemberRecord[], incoming: MemberRecord 
         duplicateRecords.forEach(record => {
             if (record === incoming) return
             const displayName = getDisplayName(record)
-            if(!displayName) return
+            if (!displayName) return
 
             extraUsers.push({
                 displayName,
@@ -165,8 +165,7 @@ export const SendMembersToAuth = onMessagePublished({
 
     let updated = 0, created = 0, photosQueued = 0, profilesUpdated = 0
     const keys = new Set<string>([...newUsers.keys(), ...existingUsers.keys()])
-    const pubsub = new PubSub()
-    const photoTopic = pubsub.topic('member-photos')
+    const photoQueue = getFunctions().taskQueue<MemberPhotoMessage>(`locations/${region}/functions/ProcessMemberPhotoTask`)
 
     const getOrCreateUser = async (
         key: string,
@@ -239,13 +238,11 @@ export const SendMembersToAuth = onMessagePublished({
 
         if (newPhotoUrl && newPhotoUrl !== photoURL) {
             try {
-                await photoTopic.publishMessage({
-                    json: {
-                        photoUrl: newPhotoUrl,
-                        email: incoming.Email,
-                        uid: existing.uid,
-                        cookies: cookieValues
-                    } as MemberPhotoMessage
+                await photoQueue.enqueue({
+                    photoUrl: newPhotoUrl,
+                    email: incoming.Email,
+                    uid: existing.uid,
+                    cookies: cookieValues
                 })
                 photosQueued++
             } catch (error) {
