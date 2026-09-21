@@ -14,6 +14,16 @@ import { useRefresh } from "app/providers"
 
 const UK_POSTCODE_REGEX = /[A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2}/i
 
+function sanitiseUrl(urlStr: string): string {
+    if (!urlStr) return ''
+    try {
+        const url = new URL(urlStr)
+        return `${url.origin}${url.pathname}`
+    } catch {
+        return urlStr
+    }
+}
+
 type FormDataType = {
     date: DateValue | undefined
     time: Time | undefined
@@ -104,13 +114,14 @@ export default function EventForm({ event, onSubmit }
 
     const { invalidate } = useRefresh()
 
-    function handleSubmit(e) {
+    function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
 
         const { date, time, duration, ...rest } = formData
 
         const newDoc: Partial<CalendarEvent> = {
             ...rest,
+            routeLink: sanitiseUrl(formData.routeLink),
             date: Timestamp.fromDate(toCalendarDateTime(date!, time).toDate(getLocalTimeZone())),
             duration: parseInt(duration, 10)
         }
@@ -243,9 +254,14 @@ export default function EventForm({ event, onSubmit }
                 size="lg"
                 name="routeLink"
                 type="url"
-                pattern={`https\://(www\.)?(strava\.com/routes/\\d{6,}|ridewithgps.com/routes/\\d{6,})`}
+                pattern={`https://(www\\.)?(strava\\.com/routes/\\d{6,}|ridewithgps\\.com/routes/\\d{6,})/?([?#].*)?`}
                 value={formData.routeLink}
                 onChange={handleChange}
+                onBlur={() => {
+                    if (formData.routeLink) {
+                        handleValueChange('routeLink')(sanitiseUrl(formData.routeLink))
+                    }
+                }}
                 errorMessage="Please enter a valid Strava or RideWithGPS route link"
             />
 
