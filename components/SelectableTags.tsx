@@ -17,7 +17,8 @@ function CustomCheckbox(props: any) {
             },
             isFocusVisible: {
                 true: {
-                },
+                    base: "ring-2 ring-offset-2 ring-primary",
+                }
             },
         },
     })
