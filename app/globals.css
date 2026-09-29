@@ -122,3 +122,7 @@ h2 {
   }
 }
 }
+
+li { 
+  list-style:square;
+}

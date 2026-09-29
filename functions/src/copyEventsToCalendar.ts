@@ -4,6 +4,7 @@ import { calendar_v3, google } from 'googleapis'
 import { getAppSecrets } from "./secrets"
 import { appSecretsParam } from "./index"
 import { CalendarEvent } from "../../app/types"
+import { marked } from "marked"
 
 const region = 'europe-north1'
 
@@ -52,10 +53,13 @@ export const CopyEventsToCalendar = onDocumentWritten({
 
             let description = afterData.description
             if (afterData.routeLink) {
-                description += `\n\n<a href="${afterData.routeLink}">Route</a>`
+                description += `\n\n[Route](${afterData.routeLink})`
             }
 
-            description += `\n\n<a href="https://calendar.vcgh.co.uk/events/${firestoreEventId}">Full details and sign-up</a>`
+            description += `\n\n[Full details and sign-up](https://calendar.vcgh.co.uk/events/${firestoreEventId})`
+
+            description = await marked.parse(description)
+            description = description.replace(/<p>(.*)<\/p>/g, "$1\n")
 
             const eventData: calendar_v3.Schema$Event = {
                 summary: `${afterData.title}${afterData.isCancelled ? ' (CANCELLED)' : ''}`,
