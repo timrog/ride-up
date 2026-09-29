@@ -7,7 +7,7 @@ interface FormatHtmlProps {
 
 const FormatHtml: React.FC<FormatHtmlProps> = ({ content }) => {
     const formatContent = (text: string) => {
-        return marked.parse(text)
+        return marked.parse(text.replace(/</g, '&lt;'))
     }
 
     const html = formatContent(content)
