@@ -1,5 +1,5 @@
 'use client'
-import { collection, query, getDocs, getDocsFromCache, Timestamp, where, orderBy, collectionGroup } from 'firebase/firestore'
+import { collection, query, getDocs, getDocsFromCache, Timestamp, where, orderBy, collectionGroup, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/initFirebase'
 import React, { Suspense, useState, useEffect } from 'react'
 import { CalendarEvent } from '../types'
@@ -13,7 +13,7 @@ import { Button } from "@heroui/button"
 import Link from "next/link"
 import WithAuth from "../withAuthClient"
 import { useSearchParams } from 'next/navigation'
-import { useRefresh } from '../providers'
+
 import { Skeleton } from "@heroui/react"
 import { useAuth } from '@/lib/hooks/useAuth'
 import PromoteNotifications from '@/components/PromoteNotifications'
@@ -51,7 +51,7 @@ async function fetchSignedUpActivityIds(userId: string, fromCache = false): Prom
     return snapshot.docs.map(doc => doc.ref.parent.parent!.id)
 }
 
-async function fetchUpcomingEvents(filterTags: string[], fromCache = false): Promise<[string, EventWithId[]][]> {
+function subscribeUpcomingEvents(filterTags: string[], onUpdate: (grouped: [string, EventWithId[]][]) => void) {
     const eventsRef = collection(db, 'events')
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -59,27 +59,26 @@ async function fetchUpcomingEvents(filterTags: string[], fromCache = false): Pro
         where('date', '>', Timestamp.fromDate(today)),
         orderBy('date', 'asc'))
 
-    const querySnapshot = fromCache ? await getDocsFromCache(q) : await getDocs(q)
-    let events: EventWithId[] = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data() as CalendarEvent
-    }))
-
-    if (filterTags.length > 0) {
-        events = events.filter(event =>
-            filterTags.some(tag => event.tags?.includes(tag))
-        )
-    }
-
-    const groupedEvents = events.reduce((acc, event) => {
-        const dateKey = event.date.toDate().toISOString().split('T')[0]
-        acc[dateKey] = acc[dateKey] || []
-        acc[dateKey].push(event)
-        return acc
-    }, {} as Record<string, EventWithId[]>)
-
-    return Object.entries(groupedEvents)
-        .sort(([dateA], [dateB]) => dateA > dateB ? 1 : -1)
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        let events: EventWithId[] = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data() as CalendarEvent
+        }))
+        if (filterTags.length > 0) {
+            events = events.filter(event =>
+                filterTags.some(tag => event.tags?.includes(tag))
+            )
+        }
+        const grouped = Object.entries(events.reduce((acc, event) => {
+            const dateKey = event.date.toDate().toISOString().split('T')[0]
+            acc[dateKey] = acc[dateKey] || []
+            acc[dateKey].push(event)
+            return acc
+        }, {} as Record<string, EventWithId[]>))
+            .sort(([dateA], [dateB]) => dateA > dateB ? 1 : -1)
+        onUpdate(grouped)
+    })
+    return unsubscribe
 }
 
 function MyRidesSection({ events, signedUpEventIds }: { events: EventWithId[], signedUpEventIds: string[] }) {
@@ -112,16 +111,16 @@ function EventListContent({ events }: { events: [string, EventWithId[]][] | null
             </> : events.length === 0 ? (
                 <p className="text-center">No upcoming events found.</p>
             ) : (
-                        events.map(([date, evs]) => (
+                events.map(([date, evs]) => (
                     <div key={date}>
-                                <h2 className="text-xl font-bold">{toFormattedDate(new Date(date))}</h2>
+                        <h2 className="text-xl font-bold">{toFormattedDate(new Date(date))}</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {evs.map((event) => (
-                                        <EventCard key={event.id} event={event} />
+                            {evs.map((event) => (
+                                <EventCard key={event.id} event={event} />
                             ))}
                         </div>
-                            </div>
-                        ))
+                    </div>
+                ))
             )}
         </div>
     )
@@ -130,18 +129,17 @@ function EventListContent({ events }: { events: [string, EventWithId[]][] | null
 function EventListInner() {
     const searchParams = useSearchParams()
     const tags = searchParams.get('tags')
-    const { refreshKey } = useRefresh()
+    
     const { user, loading: authLoading } = useAuth()
     const [events, setEvents] = useState<[string, EventWithId[]][] | null>(null)
     const [signedUpEventIds, setSignedUpEventIds] = useState<string[]>([])
 
     useEffect(() => {
         const filterTags = tags ? tags.split(',').filter(Boolean) : []
-        fetchUpcomingEvents(filterTags, true).then(e => {
-            if (!events) setEvents(e)
+        return subscribeUpcomingEvents(filterTags, (grouped) => {
+            setEvents(grouped)
         })
-        fetchUpcomingEvents(filterTags).then(setEvents)
-    }, [tags, refreshKey])
+    }, [tags])
 
     useEffect(() => {
         if (authLoading) return

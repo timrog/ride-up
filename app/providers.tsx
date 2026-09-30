@@ -19,10 +19,6 @@ const RefreshContext = createContext<RefreshContextType>({
     invalidate: () => { }
 })
 
-export function useRefresh() {
-    return useContext(RefreshContext)
-}
-
 export function Providers({ children }: { children: React.ReactNode }) {
     const [refreshKey, setRefreshKey] = useState(0)
     const invalidate = () => setRefreshKey(k => k + 1)

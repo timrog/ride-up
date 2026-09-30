@@ -10,7 +10,7 @@ import { defaultLocations } from "app/tags"
 import { MapIcon, XCircleIcon } from "@heroicons/react/24/outline"
 import { IconInline, IconLine } from "@/components/IconLine"
 import { useCancelEvent } from "app/events/[id]/useCancelEvent"
-import { useRefresh } from "app/providers"
+
 
 const UK_POSTCODE_REGEX = /[A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2}/i
 
@@ -112,7 +112,7 @@ export default function EventForm({ event, onSubmit }
         if (!event) setDraft(formData)
     }, [formData])
 
-    const { invalidate } = useRefresh()
+
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault()

@@ -15,12 +15,12 @@ import { Chip } from "@heroui/chip"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Skeleton } from "@heroui/react"
-import { useRefresh } from "app/providers"
+
 import PromoteNotifications from '@/components/PromoteNotifications'
 
 const EventPage = () => {
     const { id } = useParams<{ id: string }>()
-    const { refreshKey } = useRefresh()
+
     const [event, setEvent] = useState<CalendarEvent | null | undefined>(undefined)
 
     useEffect(() => {
@@ -31,7 +31,7 @@ const EventPage = () => {
             snapshot => setEvent(snapshot.exists() ? snapshot.data() as CalendarEvent : null),
             () => setEvent(null)
         )
-    }, [id, refreshKey])
+    }, [id])
 
     if (event === undefined) {
         return <div className="px-8">

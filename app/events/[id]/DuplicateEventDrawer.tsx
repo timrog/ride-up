@@ -5,7 +5,7 @@ import { duplicateEvent } from "../../serverActions"
 import { Button, RadioGroup, Radio, DatePicker, Spinner, addToast } from "@heroui/react"
 import { Drawer, DrawerBody, DrawerContent, DrawerFooter, DrawerHeader } from "@heroui/drawer"
 import { today, getLocalTimeZone, DateValue } from "@internationalized/date"
-import { useRefresh } from "app/providers"
+
 
 type DuplicateMode = "single" | "weekly"
 
@@ -37,7 +37,7 @@ export default function DuplicateEventDrawer({ eventId, isOpen, onOpenChange }: 
 
     const handleModeChange = (val: DuplicateMode) => setForm(f => ({ ...f, mode: val }))
     const handleTargetDateChange = (val: DateValue) => setForm(f => ({ ...f, targetDate: val, error: null, success: null }))
-    const { invalidate } = useRefresh()
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -60,7 +60,7 @@ export default function DuplicateEventDrawer({ eventId, isOpen, onOpenChange }: 
             })
 
             onOpenChange(false)
-            invalidate()
+
         } catch (err: any) {
             console.error('Duplication error:', err)
             addToast({
