@@ -537,9 +537,7 @@ function SignInWithCredentials({ returnUrl, onAwaitingCodeChange, onMissingMembe
                         aria-live="polite"
                     >
                         {isPending
-                            ? isPhone
-                                ? 'Sending verification code…'
-                                : 'Signing in…'
+                            ? 'Signing in…'
                             : isPhone
                                 ? 'Send verification code'
                                 : 'Sign in with email'}
