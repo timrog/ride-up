@@ -128,7 +128,7 @@ export default function Activity({ id, isActive, eventLeaderId }: { id: string, 
                                     <li key={signup.createdAt.toMillis()} className="flex gap-2 items-center">
                                         <Avatar src={signup.avatarUrl || undefined}
                                             tabIndex={1}
-                                            className="relative transition-transform duration-200 ease-out hover:z-[1] hover:scale-300 focus:z-[1] focus:scale-300 focus-visible:z-[1] focus-visible:scale-300"
+                                            className="relative w-10 min-w-10 shrink-0 transition-transform duration-200 ease-out hover:z-[1] hover:scale-300 focus:z-[1] focus:scale-300 focus-visible:z-[1] focus-visible:scale-300"
                                         />
                                         {signup.name}{signup.isLeader && signup.userId !== eventLeaderId && isViewingAsEventLeader ? '▲' : ''}
                                         {signup.membership && signup.membership.toLowerCase().indexOf('trial') >= 0 &&
@@ -167,12 +167,14 @@ export default function Activity({ id, isActive, eventLeaderId }: { id: string, 
                 <div>
                     {activity.comments?.map(c => (
                         <Card
-                            className={`mb-3 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
-                            <CardHeader className="font-black flex gap-2 z-0">
-                                <Avatar src={c.avatarUrl || undefined} />
-                                <span>{c.name} &middot; {formatRelative(c.createdAt.toDate())}</span>
-                            </CardHeader>
-                            <CardBody className="whitespace-pre-line">{c.text}</CardBody >
+                            className={`flex flex-row gap-2 mb-6 p-4 ${c.userId === currentUser?.uid ? 'bg-blue-200 ml-16' : 'bg-white mr-16'}`} key={c.createdAt.toString()}>
+                            <Avatar src={c.avatarUrl || undefined} className="w-10 min-w-10 shrink-0" />
+                            <div>
+                                <div className="z-0 p-0 pb-1">
+                                    <span className="font-bold">{c.name}</span> &middot; {formatRelative(c.createdAt.toDate())}
+                                </div>
+                                <div className="whitespace-pre-line">{c.text}</div>
+                            </div>
                         </Card >
                     ))
                     }
@@ -205,4 +207,3 @@ export default function Activity({ id, isActive, eventLeaderId }: { id: string, 
         </div>
     </>
 }
-

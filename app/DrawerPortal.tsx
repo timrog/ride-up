@@ -21,7 +21,7 @@ export default function DrawerPortal({ children, header }: { children: React.Rea
             hideCloseButton
         >
             <DrawerContent>
-                <DrawerHeader className="flex w-full items-center justify-between">
+                <DrawerHeader className="flex w-full items-center justify-between pb-0">
                     <Button isIconOnly as={Link} href="/" variant="light" color="secondary" className="-ml-2"><ChevronLeftIcon height={36} /></Button>
                     {header && <div className="ml-3">{header}</div>}
                 </DrawerHeader>
