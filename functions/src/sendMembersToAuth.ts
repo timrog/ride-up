@@ -154,7 +154,7 @@ async function loadCookieValues(): Promise<string[]> {
 }
 
 export const SendMembersToAuth = onMessagePublished({
-    topic: "all-members", region
+    topic: "all-members", region, memory: "512MiB"
 }, async (event) => {
     const records = decodeMembersCsv(event)
     const emailGroups = groupRecordsByEmail(records)
@@ -266,7 +266,6 @@ export const SendMembersToAuth = onMessagePublished({
                 || JSON.stringify(existingClaims?.demographics) !== JSON.stringify(claims.demographics)
                 || JSON.stringify(existingClaims?.extraUsers) !== JSON.stringify(claims.extraUsers)) {
                 await auth.setCustomUserClaims(existing.uid, claims)
-                auth.createUser({})
                 updated++
             }
         } catch (error) {
