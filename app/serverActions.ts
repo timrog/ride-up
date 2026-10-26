@@ -70,7 +70,7 @@ export async function duplicateEvent(params: DuplicateParams) {
         if (mode === 'single') {
             targetDates = [targetDate]
         } else {
-            let current = sourceDate
+            let current = addDays(sourceDate, 7)
             let count = 0
             const limit = 52
             while (current.getTime() <= targetDate.getTime() && count++ < limit) {
